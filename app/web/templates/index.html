@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<title>library-eka</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="/static/app.css" />
+</head>
+<body>
+<header class="top">
+  <h1>library-eka</h1>
+  <nav>
+    <a href="#tab-ask" data-tab="ask" class="active">Tanya</a>
+    <a href="#tab-draft" data-tab="draft">Draft</a>
+    <a href="#tab-mindmap" data-tab="mindmap">Mindmap</a>
+    <a href="#tab-library" data-tab="library">Pustaka</a>
+  </nav>
+</header>
+
+<main class="layout">
+  <section id="tab-ask" class="tab active">
+    <form id="ask-form">
+      <textarea name="question" placeholder="Tanya korpus..." rows="3" required></textarea>
+      <div class="row">
+        <input type="number" name="year_min" placeholder="Tahun min" />
+        <input type="number" name="year_max" placeholder="Tahun max" />
+        <input type="text" name="authors_like" placeholder="Penulis..." />
+        <button type="submit">Tanya</button>
+      </div>
+    </form>
+    <div id="ask-answer" class="answer"></div>
+    <ol id="ask-citations" class="citations"></ol>
+  </section>
+
+  <section id="tab-draft" class="tab">
+    <form id="draft-form">
+      <textarea name="topic" placeholder="Topik paragraf akademik..." rows="3" required></textarea>
+      <div class="row">
+        <select name="style"><option value="vancouver">Vancouver</option><option value="apa">APA</option></select>
+        <input type="number" name="year_min" placeholder="Tahun min" />
+        <input type="number" name="year_max" placeholder="Tahun max" />
+        <button type="submit">Draft</button>
+      </div>
+    </form>
+    <div id="draft-paragraph" class="answer"></div>
+    <h3>Referensi</h3>
+    <ol id="draft-refs" class="citations"></ol>
+  </section>
+
+  <section id="tab-mindmap" class="tab">
+    <form id="mindmap-form">
+      <textarea name="topic" placeholder="Topik mindmap..." rows="2" required></textarea>
+      <button type="submit">Buat Mindmap</button>
+    </form>
+    <pre id="mindmap-markdown" class="md"></pre>
+    <div id="mindmap-svg"></div>
+  </section>
+
+  <section id="tab-library" class="tab">
+    <form id="lib-form">
+      <input name="q" placeholder="Cari judul / penulis..." />
+      <input name="folder" placeholder="Folder" />
+      <input name="year_min" type="number" placeholder="Tahun min" />
+      <input name="year_max" type="number" placeholder="Tahun max" />
+      <button type="submit">Filter</button>
+    </form>
+    <table id="lib-table">
+      <thead><tr><th>Judul</th><th>Penulis</th><th>Tahun</th><th>Folder</th><th>Aksi</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/markmap-autoloader@0.16"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<title>PDF Viewer — library-eka</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="/static/app.css" />
+<style>
+  body, html { margin:0; height:100%; background:#0b0c10; color:#e8eaed; }
+  #toolbar { display:flex; gap:.5rem; padding:.5rem .75rem; background:#111319; border-bottom:1px solid #1f2330; align-items:center; }
+  #toolbar button { background:#1f2330; color:#e8eaed; border:1px solid #2a2f3d; padding:.25rem .6rem; border-radius:4px; cursor:pointer; }
+  #toolbar input { background:#0b0c10; color:#e8eaed; border:1px solid #2a2f3d; padding:.25rem .4rem; width:4rem; }
+  #pdf-container { overflow:auto; height: calc(100% - 42px); padding:8px; display:flex; flex-direction:column; align-items:center; gap:8px; }
+  canvas { box-shadow: 0 0 0 1px #2a2f3d; background:#fff; }
+</style>
+</head>
+<body>
+<div id="toolbar">
+  <button id="prev">‹</button>
+  <span>halaman <input id="page-num" type="number" min="1" value="1" /> / <span id="page-count">?</span></span>
+  <button id="next">›</button>
+  <span style="margin-left:auto" id="title"></span>
+</div>
+<div id="pdf-container"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.6.82/build/pdf.min.mjs" type="module"></script>
+<script type="module">
+import * as pdfjsLib from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.6.82/build/pdf.min.mjs";
+pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.6.82/build/pdf.worker.min.mjs";
+
+const qs = new URLSearchParams(location.search);
+const docId = qs.get("doc");
+const initialPage = parseInt((location.hash || "").replace(/^#page=/, ""), 10) || 1;
+const titleEl = document.getElementById("title");
+titleEl.textContent = docId ? `doc #${docId}` : "(tidak ada doc)";
+
+if (docId) {
+  const url = `/pdf/${docId}`;
+  const loadingTask = pdfjsLib.getDocument(url);
+  loadingTask.promise.then(async (pdf) => {
+    document.getElementById("page-count").textContent = pdf.numPages;
+    const numInput = document.getElementById("page-num");
+    numInput.max = pdf.numPages;
+    const container = document.getElementById("pdf-container");
+
+    let current = Math.min(Math.max(initialPage, 1), pdf.numPages);
+
+    async function render(pg) {
+      container.innerHTML = "";
+      const page = await pdf.getPage(pg);
+      const viewport = page.getViewport({ scale: 1.4 });
+      const canvas = document.createElement("canvas");
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      container.appendChild(canvas);
+      await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+      numInput.value = pg;
+      current = pg;
+    }
+
+    document.getElementById("prev").onclick = () => current > 1 && render(current - 1);
+    document.getElementById("next").onclick = () => current < pdf.numPages && render(current + 1);
+    numInput.addEventListener("change", () => {
+      const v = parseInt(numInput.value, 10);
+      if (v >= 1 && v <= pdf.numPages) render(v);
+    });
+    window.addEventListener("hashchange", () => {
+      const p = parseInt((location.hash || "").replace(/^#page=/, ""), 10);
+      if (p >= 1 && p <= pdf.numPages) render(p);
+    });
+
+    render(current);
+  }).catch((e) => { titleEl.textContent = "Gagal memuat: " + e.message; });
+}
+</script>
+</body>
+</html>
