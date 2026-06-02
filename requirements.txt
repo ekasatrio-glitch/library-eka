@@ -8,3 +8,4 @@ python-dotenv
 jinja2
 httpx
 pydantic
+pytest
