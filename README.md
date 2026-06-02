@@ -25,6 +25,52 @@ cp .env.example .env
 # edit .env: API keys + WATCH_FOLDERS
 ```
 
+Start Ollama + pull embedder (once):
+
+```bash
+ollama pull nomic-embed-text
+```
+
+### Run the stack
+
+```bash
+scripts/run.sh
+# Web: http://127.0.0.1:8765
+# Watcher logs: logs/watcher.log
+```
+
+Manual ingest (one-off):
+
+```bash
+python -m app.ingest.pipeline /path/to/pdf_folder
+```
+
+### Persist watcher on login (macOS)
+
+```bash
+scripts/install_launchagent.sh
+```
+
+Stops/starts via `launchctl unload|load -w ~/Library/LaunchAgents/com.eka.library.watcher.plist`.
+
+### Endpoints
+
+| Method | Path             | Description                                  |
+|--------|------------------|----------------------------------------------|
+| GET    | `/`              | Chat / Draft / Mindmap / Library UI          |
+| GET    | `/viewer`        | PDF.js viewer (`?doc=<id>#page=<n>`)         |
+| POST   | `/ask`           | RAG question → answer + grounded citations   |
+| POST   | `/draft`         | Academic paragraph (Vancouver / APA)         |
+| POST   | `/mindmap`       | MarkMap markdown (multi-query retrieval)     |
+| GET    | `/library`       | Indexed docs + folder/year/author filters    |
+| GET    | `/pdf/{id}`      | Stream the source PDF                        |
+
+### Tests
+
+```bash
+python -m pytest tests/ -v
+```
+
 ## Layout
 
 ```
