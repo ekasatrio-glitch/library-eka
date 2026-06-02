@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+pymupdf
+watchdog
+sqlite-vec
+openai
+python-dotenv
+jinja2
+httpx
+pydantic
