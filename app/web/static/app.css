@@ -68,3 +68,32 @@ button.danger { background:#3a1f24; border-color:#5a2a32; }
 button.link { background:none; border:none; color:#7aa2ff; cursor:pointer; padding:.1rem .3rem; }
 table.matrix { border-collapse:collapse; width:100%; font-size:.82em; display:block; overflow:auto; }
 table.matrix th, table.matrix td { border:1px solid #2a2f3d; padding:.3rem .4rem; vertical-align:top; text-align:left; max-width:280px; }
+
+/* Projects redesign */
+.proj-home-bar { margin-bottom: .8rem; }
+.proj-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr)); gap:.7rem; }
+.proj-card { border:1px solid #2a2f3d; border-radius:8px; padding:.7rem .8rem; cursor:pointer; background:#111319; }
+.proj-card:hover { border-color:#3a4150; background:#151823; }
+.proj-card h4 { margin:0 0 .3rem 0; }
+.ws-header { display:flex; align-items:center; gap:.6rem; margin-bottom:.2rem; }
+.ws-header h3 { margin:0; }
+.ws-spacer { flex:1; }
+.badge { background:#1f2330; border:1px solid #2a2f3d; border-radius:10px; padding:.05rem .5rem; font-size:.8em; color:#b8c0d0; }
+.folder-hint { margin-bottom:.6rem; word-break:break-all; }
+.subnav { display:flex; gap:.25rem; border-bottom:1px solid #2a2f3d; margin-bottom:.8rem; }
+.subnav-btn { background:none; border:none; border-bottom:2px solid transparent; color:#8b93a7; padding:.4rem .7rem; cursor:pointer; }
+.subnav-btn.active { color:#e8eaed; border-bottom-color:#7aa2ff; }
+.subpanel { display:none; }
+.subpanel.active { display:block; }
+button.small { padding:.15rem .5rem; font-size:.85em; }
+.codebook-details { margin:.5rem 0; }
+.codebook-details summary { cursor:pointer; color:#8b93a7; }
+
+/* Chat thread */
+.chat-thread { display:flex; flex-direction:column; gap:.5rem; max-height:50vh; overflow-y:auto; margin-bottom:.6rem; }
+.chat-msg { padding:.5rem .7rem; border-radius:8px; max-width:90%; }
+.chat-msg.user { align-self:flex-end; background:#1f2a44; }
+.chat-msg.bot  { align-self:flex-start; background:#15181f; border:1px solid #2a2f3d; }
+.chat-msg .cites { margin:.4rem 0 0 0; padding-left:1.1rem; font-size:.85em; }
+.chat-msg .nudge { margin-top:.4rem; }
+.chat-form { display:flex; flex-direction:column; gap:.3rem; }
