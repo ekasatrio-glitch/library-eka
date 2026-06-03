@@ -10,4 +10,6 @@ httpx
 pydantic
 pytest
 flashrank
+python-multipart
+openpyxl
 # Optional (RERANKER=bge): pip install sentence-transformers

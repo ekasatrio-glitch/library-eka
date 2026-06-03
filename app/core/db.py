@@ -44,6 +44,36 @@ CREATE TABLE IF NOT EXISTS meta (
     value TEXT
 );
 
+-- Projects / workspaces. The corpus stays global; a project just references a
+-- subset of documents (no duplication, no re-embed).
+CREATE TABLE IF NOT EXISTS projects (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    description TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS project_documents (
+    project_id INTEGER NOT NULL,
+    doc_id INTEGER NOT NULL,
+    added_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (project_id, doc_id),
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (doc_id) REFERENCES documents(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_projdocs_doc ON project_documents(doc_id);
+
+-- Per-project closed-coding vocabulary (filled in Phase 13).
+CREATE TABLE IF NOT EXISTS project_codebook (
+    project_id INTEGER NOT NULL,
+    tag TEXT NOT NULL,
+    category TEXT,
+    color TEXT,
+    PRIMARY KEY (project_id, tag),
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+);
+
 -- Sparse keyword index (BM25). External-content FTS5 over chunks.text:
 -- the index stores tokens only; text stays in `chunks` (rowid == chunks.id).
 CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(

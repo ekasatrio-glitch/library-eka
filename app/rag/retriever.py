@@ -44,6 +44,14 @@ def _build_where(filters: Optional[Dict[str, Any]]) -> Tuple[str, list]:
     if (i := filters.get("doc_id")) is not None:
         clauses.append("d.id = ?")
         params.append(int(i))
+    if (ids := filters.get("doc_ids")) is not None:
+        ids = [int(x) for x in ids]
+        if not ids:
+            # Empty scope: match nothing rather than silently ignoring the filter.
+            clauses.append("0 = 1")
+        else:
+            clauses.append(f"d.id IN ({','.join('?' * len(ids))})")
+            params.extend(ids)
     if not clauses:
         return "", []
     return " AND " + " AND ".join(clauses), params
