@@ -16,6 +16,22 @@ function citationLinks(cits) {
   }).join("");
 }
 
+function appendChat(threadId, question, answer, citations, nudgeHtml) {
+  const thread = document.getElementById(threadId);
+  const u = document.createElement("div");
+  u.className = "chat-msg user";
+  u.textContent = question;
+  const b = document.createElement("div");
+  b.className = "chat-msg bot";
+  b.innerHTML = escapeHtml(answer).replace(/\n/g, "<br>") +
+    (citations && citations.length ? `<ol class="cites">${citationLinks(citations)}</ol>` : "") +
+    (nudgeHtml ? `<div class="nudge">${nudgeHtml}</div>` : "");
+  thread.appendChild(u);
+  thread.appendChild(b);
+  thread.scrollTop = thread.scrollHeight;
+  return b;
+}
+
 function escapeHtml(s) {
   return (s || "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
 }
@@ -41,15 +57,16 @@ function formToBody(form) {
 
 document.getElementById("ask-form").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const ans = document.getElementById("ask-answer");
-  const cits = document.getElementById("ask-citations");
-  ans.textContent = "Mencari & menyusun jawaban...";
-  cits.innerHTML = "";
+  const body = formToBody(e.target);
+  const ta = e.target.elements.question;
+  const q = ta.value;
+  const pending = appendChat("ask-chat-thread", q, "…", [], "");
+  ta.value = "";
   try {
-    const res = await postJSON("/ask", formToBody(e.target));
-    ans.textContent = res.answer;
-    cits.innerHTML = citationLinks(res.citations || []);
-  } catch (err) { ans.textContent = "Error: " + err.message; }
+    const res = await postJSON("/ask", body);
+    pending.innerHTML = escapeHtml(res.answer).replace(/\n/g, "<br>") +
+      ((res.citations || []).length ? `<ol class="cites">${citationLinks(res.citations)}</ol>` : "");
+  } catch (err) { pending.textContent = "Error: " + err.message; }
 });
 
 document.getElementById("draft-form").addEventListener("submit", async (e) => {
@@ -122,28 +139,60 @@ async function delJSON(url) {
 
 async function loadProjects() {
   const data = await getJSON("/projects");
-  const ul = document.getElementById("proj-list");
-  ul.innerHTML = (data.projects || []).map(p =>
-    `<li><a href="#" data-pid="${p.id}">${escapeHtml(p.name)}</a> <span class="muted">(${p.n_papers})</span></li>`
+  const grid = document.getElementById("proj-grid");
+  grid.innerHTML = (data.projects || []).map(p =>
+    `<div class="proj-card" data-pid="${p.id}">
+       <h4>${escapeHtml(p.name)}</h4>
+       <div class="muted">${p.n_papers} paper</div>
+     </div>`
   ).join("");
-  ul.querySelectorAll("a[data-pid]").forEach(a =>
-    a.addEventListener("click", (e) => { e.preventDefault(); openProject(Number(a.dataset.pid)); })
+  grid.querySelectorAll(".proj-card[data-pid]").forEach(card =>
+    card.addEventListener("click", () => openProject(Number(card.dataset.pid)))
   );
+}
+
+function showProjectsHome() {
+  PROJ.current = null;
+  document.getElementById("proj-workspace").hidden = true;
+  document.getElementById("proj-home").hidden = false;
+  loadProjects();
+}
+
+function setSubtab(name) {
+  document.querySelectorAll("#proj-subnav .subnav-btn").forEach(b =>
+    b.classList.toggle("active", b.dataset.subtab === name));
+  document.querySelectorAll("#proj-workspace .subpanel").forEach(p => {
+    const on = p.dataset.panel === name;
+    p.classList.toggle("active", on);
+    p.hidden = !on;
+  });
 }
 
 async function openProject(pid) {
   PROJ.current = pid;
   const d = await getJSON(`/projects/${pid}`);
-  document.getElementById("proj-detail").hidden = false;
+  document.getElementById("proj-home").hidden = true;
+  document.getElementById("proj-workspace").hidden = false;
   document.getElementById("proj-title").textContent = d.name;
-  document.getElementById("proj-folder").textContent = d.folder_path ? `📁 Drop PDF ke: ${d.folder_path}` : "";
+  document.getElementById("proj-count").textContent = `${(d.papers || []).length} paper`;
+  document.getElementById("proj-folder").textContent =
+    d.folder_path ? `📁 Drop PDF ke: ${d.folder_path}` : "";
   renderProjPapers(d.papers || []);
-  document.getElementById("proj-matrix-wrap").hidden = true;
-  document.getElementById("proj-answer").textContent = "";
-  document.getElementById("proj-citations").innerHTML = "";
-  document.getElementById("proj-nudge").innerHTML = "";
+  document.getElementById("proj-chat-thread").innerHTML = "";
+  document.getElementById("matrix-output").innerHTML = "";
+  document.getElementById("proj-add-panel").hidden = true;
+  document.getElementById("proj-import-panel").hidden = true;
+  setSubtab("paper");
   updateMatrixExportLinks();
 }
+
+document.getElementById("proj-back").addEventListener("click", showProjectsHome);
+document.querySelectorAll("#proj-subnav .subnav-btn").forEach(b =>
+  b.addEventListener("click", () => setSubtab(b.dataset.subtab)));
+document.getElementById("proj-addpaper-toggle").addEventListener("click", () => {
+  const el = document.getElementById("proj-add-panel");
+  el.hidden = !el.hidden;
+});
 
 function renderProjPapers(papers) {
   const tb = document.querySelector("#proj-papers tbody");
@@ -172,9 +221,7 @@ document.getElementById("proj-create-form").addEventListener("submit", async (e)
 document.getElementById("proj-delete-btn").addEventListener("click", async () => {
   if (!PROJ.current || !confirm("Hapus proyek ini? (paper tetap di korpus)")) return;
   await delJSON(`/projects/${PROJ.current}`);
-  document.getElementById("proj-detail").hidden = true;
-  PROJ.current = null;
-  loadProjects();
+  showProjectsHome();
 });
 
 document.getElementById("proj-import-toggle").addEventListener("click", async () => {
@@ -217,36 +264,32 @@ document.getElementById("proj-upload-form").addEventListener("submit", async (e)
 
 document.getElementById("proj-ask-form").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const ans = document.getElementById("proj-answer");
-  const cits = document.getElementById("proj-citations");
-  const nudge = document.getElementById("proj-nudge");
-  ans.textContent = "Mencari dalam proyek...";
-  cits.innerHTML = ""; nudge.innerHTML = "";
+  const ta = e.target.elements.question;
+  const q = ta.value;
+  const expand = document.getElementById("proj-expand").checked;
+  const pending = appendChat("proj-chat-thread", q, "…", [], "");
+  ta.value = "";
   try {
-    const res = await postJSON(`/projects/${PROJ.current}/ask`, {
-      question: e.target.elements.question.value,
-      expand: document.getElementById("proj-expand").checked,
-    });
-    ans.textContent = res.answer;
-    cits.innerHTML = citationLinks(res.citations || []);
+    const res = await postJSON(`/projects/${PROJ.current}/ask`, { question: q, expand });
+    let nudgeHtml = "";
     if ((res.nudge || []).length) {
-      nudge.innerHTML = `<p class="muted">${res.nudge.length} paper lain di library mungkin relevan — tambahkan ke proyek?</p>` +
+      nudgeHtml = `${res.nudge.length} paper lain mungkin relevan: ` +
         res.nudge.map(n => `<button class="link" data-add="${n.doc_id}">+ ${escapeHtml(n.title || "(untitled)")}</button>`).join(" ");
-      nudge.querySelectorAll("button[data-add]").forEach(b =>
-        b.addEventListener("click", async () => {
-          const r = await postJSON(`/projects/${PROJ.current}/papers`, { doc_ids: [Number(b.dataset.add)] });
-          renderProjPapers(r.papers || []); b.remove(); loadProjects();
-        })
-      );
     }
-  } catch (err) { ans.textContent = "Error: " + err.message; }
+    pending.innerHTML = escapeHtml(res.answer).replace(/\n/g, "<br>") +
+      ((res.citations || []).length ? `<ol class="cites">${citationLinks(res.citations)}</ol>` : "") +
+      (nudgeHtml ? `<div class="nudge">${nudgeHtml}</div>` : "");
+    pending.querySelectorAll("button[data-add]").forEach(btn =>
+      btn.addEventListener("click", async () => {
+        const r = await postJSON(`/projects/${PROJ.current}/papers`, { doc_ids: [Number(btn.dataset.add)] });
+        renderProjPapers(r.papers || []); btn.remove(); loadProjects();
+      }));
+  } catch (err) { pending.textContent = "Error: " + err.message; }
 });
 
 // Matrix (wired in Phase 12-13)
 document.getElementById("proj-matrix-btn").addEventListener("click", async () => {
-  const wrap = document.getElementById("proj-matrix-wrap");
   const out = document.getElementById("matrix-output");
-  wrap.hidden = false;
   out.textContent = "Mengekstrak matriks (grounded)...";
   try {
     const view = document.getElementById("matrix-view").value;
