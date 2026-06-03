@@ -61,6 +61,22 @@ function formToBody(form) {
   return data;
 }
 
+function enterToSend(form) {
+  const ta = form.querySelector("textarea");
+  if (!ta) return;
+  ta.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+      e.preventDefault();
+      form.requestSubmit();
+    }
+  });
+}
+
+enterToSend(document.getElementById("ask-form"));
+enterToSend(document.getElementById("proj-ask-form"));
+enterToSend(document.getElementById("mindmap-form"));
+
+
 document.getElementById("ask-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const body = formToBody(e.target);
