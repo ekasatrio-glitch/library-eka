@@ -97,3 +97,9 @@ button.small { padding:.15rem .5rem; font-size:.85em; }
 .chat-msg .cites { margin:.4rem 0 0 0; padding-left:1.1rem; font-size:.85em; }
 .chat-msg .nudge { margin-top:.4rem; }
 .chat-form { display:flex; flex-direction:column; gap:.3rem; }
+
+/* Collapsible citations */
+.cites-toggle { margin-top:.4rem; }
+.cites-toggle > summary { cursor:pointer; color:#8b93a7; font-size:.85em; list-style:none; user-select:none; }
+.cites-toggle > summary::-webkit-details-marker { display:none; }
+.cites-toggle[open] > summary { color:#b8c0d0; }
