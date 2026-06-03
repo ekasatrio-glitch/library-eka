@@ -16,6 +16,12 @@ function citationLinks(cits) {
   }).join("");
 }
 
+function citationBlock(citations) {
+  if (!citations || !citations.length) return "";
+  return `<details class="cites-toggle"><summary>📎 Sumber (${citations.length})</summary>` +
+    `<ol class="cites">${citationLinks(citations)}</ol></details>`;
+}
+
 function appendChat(threadId, question, answer, citations, nudgeHtml) {
   const thread = document.getElementById(threadId);
   const u = document.createElement("div");
@@ -24,7 +30,7 @@ function appendChat(threadId, question, answer, citations, nudgeHtml) {
   const b = document.createElement("div");
   b.className = "chat-msg bot";
   b.innerHTML = escapeHtml(answer).replace(/\n/g, "<br>") +
-    (citations && citations.length ? `<ol class="cites">${citationLinks(citations)}</ol>` : "") +
+    citationBlock(citations) +
     (nudgeHtml ? `<div class="nudge">${nudgeHtml}</div>` : "");
   thread.appendChild(u);
   thread.appendChild(b);
@@ -65,7 +71,7 @@ document.getElementById("ask-form").addEventListener("submit", async (e) => {
   try {
     const res = await postJSON("/ask", body);
     pending.innerHTML = escapeHtml(res.answer).replace(/\n/g, "<br>") +
-      ((res.citations || []).length ? `<ol class="cites">${citationLinks(res.citations)}</ol>` : "");
+      citationBlock(res.citations);
   } catch (err) { pending.textContent = "Error: " + err.message; }
 });
 
@@ -277,7 +283,7 @@ document.getElementById("proj-ask-form").addEventListener("submit", async (e) =>
         res.nudge.map(n => `<button class="link" data-add="${n.doc_id}">+ ${escapeHtml(n.title || "(untitled)")}</button>`).join(" ");
     }
     pending.innerHTML = escapeHtml(res.answer).replace(/\n/g, "<br>") +
-      ((res.citations || []).length ? `<ol class="cites">${citationLinks(res.citations)}</ol>` : "") +
+      citationBlock(res.citations) +
       (nudgeHtml ? `<div class="nudge">${nudgeHtml}</div>` : "");
     pending.querySelectorAll("button[data-add]").forEach(btn =>
       btn.addEventListener("click", async () => {
