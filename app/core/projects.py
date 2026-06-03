@@ -93,6 +93,37 @@ def list_papers(conn, project_id: int) -> List[Dict[str, Any]]:
     ]
 
 
+def list_codebook(conn, project_id: int) -> List[Dict[str, Any]]:
+    rows = conn.execute(
+        "SELECT tag, category, color FROM project_codebook WHERE project_id = ? ORDER BY tag",
+        (project_id,),
+    ).fetchall()
+    return [{"tag": r[0], "category": r[1], "color": r[2]} for r in rows]
+
+
+def upsert_codebook_tag(conn, project_id, tag, category=None, color=None) -> None:
+    conn.execute(
+        "INSERT INTO project_codebook (project_id, tag, category, color) VALUES (?, ?, ?, ?) "
+        "ON CONFLICT(project_id, tag) DO UPDATE SET category=excluded.category, color=excluded.color",
+        (project_id, tag, category, color),
+    )
+    conn.commit()
+
+
+def set_codebook(conn, project_id, entries: List[Dict[str, Any]]) -> int:
+    """Replace the project's codebook with `entries` ([{tag, category?, color?}])."""
+    conn.execute("DELETE FROM project_codebook WHERE project_id = ?", (project_id,))
+    for e in entries:
+        if not e.get("tag"):
+            continue
+        conn.execute(
+            "INSERT OR REPLACE INTO project_codebook (project_id, tag, category, color) VALUES (?, ?, ?, ?)",
+            (project_id, e["tag"], e.get("category"), e.get("color")),
+        )
+    conn.commit()
+    return len(entries)
+
+
 def project_doc_ids(conn, project_id: int) -> List[int]:
     rows = conn.execute(
         "SELECT doc_id FROM project_documents WHERE project_id = ?", (project_id,)

@@ -282,3 +282,17 @@ function renderMatrix(res) {
 }
 
 loadProjects();
+
+document.getElementById("codebook-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const input = e.target.elements.file;
+  if (!PROJ.current || !input.files.length) return;
+  const fd = new FormData();
+  fd.append("file", input.files[0]);
+  const r = await fetch(`/projects/${PROJ.current}/codebook/bootstrap`, { method: "POST", body: fd });
+  const info = document.getElementById("codebook-info");
+  if (!r.ok) { info.textContent = "Gagal: " + await r.text(); return; }
+  const res = await r.json();
+  info.textContent = `Codebook: ${res.learned} tag dipelajari (closed coding aktif untuk matriks berikutnya).`;
+  e.target.reset();
+});

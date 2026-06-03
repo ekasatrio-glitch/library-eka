@@ -121,7 +121,12 @@
             </label>
             <a id="matrix-xlsx" href="#" target="_blank">Ekspor XLSX</a>
             <a id="matrix-csv" href="#" target="_blank">Ekspor CSV</a>
+            <form id="codebook-form" class="row" title="Pelajari tag+warna dari sheet/CSV lama (closed coding)">
+              <input type="file" name="file" accept=".csv,.xlsx" />
+              <button type="submit">Bootstrap codebook</button>
+            </form>
           </div>
+          <div id="codebook-info" class="muted"></div>
           <div id="matrix-output"></div>
         </div>
       </div>

@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 
 from app.core.config import ROOT
@@ -203,6 +203,94 @@ def get_matrix(project_id: int, view: str = "matrix") -> JSONResponse:
         if not proj.get_project(conn, project_id):
             raise HTTPException(404, "project not found")
         return JSONResponse(shape_view(load_matrix(conn, project_id), view))
+    finally:
+        conn.close()
+
+
+def _view_or_404(conn, project_id, view):
+    from app.rag.matrix import load_matrix, shape_view
+
+    if not proj.get_project(conn, project_id):
+        raise HTTPException(404, "project not found")
+    return shape_view(load_matrix(conn, project_id), view)
+
+
+@router.get("/{project_id}/matrix/export.csv")
+def export_csv(project_id: int, view: str = "matrix") -> Response:
+    from app.web.export import to_csv
+
+    conn = connect()
+    try:
+        data = to_csv(_view_or_404(conn, project_id, view))
+    finally:
+        conn.close()
+    return Response(
+        content=data,
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="matrix-{project_id}-{view}.csv"'},
+    )
+
+
+@router.get("/{project_id}/matrix/export.xlsx")
+def export_xlsx(project_id: int, view: str = "matrix") -> Response:
+    from app.web.export import to_xlsx
+
+    conn = connect()
+    try:
+        v = _view_or_404(conn, project_id, view)
+        codebook = proj.list_codebook(conn, project_id)
+        data = to_xlsx(v, codebook=codebook)
+    finally:
+        conn.close()
+    return Response(
+        content=data,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="matrix-{project_id}-{view}.xlsx"'},
+    )
+
+
+class CodebookSet(BaseModel):
+    entries: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+@router.get("/{project_id}/codebook")
+def get_codebook(project_id: int) -> JSONResponse:
+    conn = connect()
+    try:
+        if not proj.get_project(conn, project_id):
+            raise HTTPException(404, "project not found")
+        return JSONResponse({"codebook": proj.list_codebook(conn, project_id)})
+    finally:
+        conn.close()
+
+
+@router.post("/{project_id}/codebook")
+def post_codebook(project_id: int, req: CodebookSet) -> JSONResponse:
+    conn = connect()
+    try:
+        if not proj.get_project(conn, project_id):
+            raise HTTPException(404, "project not found")
+        proj.set_codebook(conn, project_id, req.entries)
+        return JSONResponse({"codebook": proj.list_codebook(conn, project_id)})
+    finally:
+        conn.close()
+
+
+@router.post("/{project_id}/codebook/bootstrap")
+async def bootstrap_codebook(project_id: int, file: UploadFile = File(...)) -> JSONResponse:
+    """Learn tag vocabulary (+ colors) from an old matrix sheet/CSV -> closed coding."""
+    from app.web.export import bootstrap_codebook_from_bytes
+
+    conn = connect()
+    try:
+        if not proj.get_project(conn, project_id):
+            raise HTTPException(404, "project not found")
+        data = await file.read()
+        entries = bootstrap_codebook_from_bytes(data, file.filename or "")
+        if not entries:
+            raise HTTPException(422, "no 'tag' column found in uploaded file")
+        proj.set_codebook(conn, project_id, entries)
+        return JSONResponse({"learned": len(entries), "codebook": proj.list_codebook(conn, project_id)})
     finally:
         conn.close()
 

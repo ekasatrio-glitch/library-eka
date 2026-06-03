@@ -250,6 +250,24 @@ def _supporting_papers(conn, doc_id, title, fields, search_fn, k) -> Dict[str, A
     return {"text": "; ".join(parts), "refs": refs}
 
 
+def snap_tag(tag: str, codebook: List[str]) -> str:
+    """Closed coding: map a free tag onto the project codebook vocabulary.
+
+    Exact (case-insensitive) match wins; else substring either direction; else
+    keep the original tag but flag it for review (so it isn't silently invented).
+    """
+    if not codebook or not tag or tag.startswith("tidak "):
+        return tag
+    low = tag.strip().lower()
+    for c in codebook:
+        if c.lower() == low:
+            return c
+    for c in codebook:
+        if c.lower() in low or low in c.lower():
+            return c
+    return f"{tag} (perlu verifikasi tag)"
+
+
 def build_matrix(
     conn,
     project_id: int,
@@ -258,12 +276,15 @@ def build_matrix(
     overrides: Optional[Dict[int, str]] = None,
 ) -> List[Dict[str, Any]]:
     """Extract + persist a row per project paper. Returns the list of rows."""
-    from app.core.projects import project_doc_ids
+    from app.core.projects import list_codebook, project_doc_ids
 
     overrides = overrides or {}
+    codebook = [c["tag"] for c in list_codebook(conn, project_id)]
     rows: List[Dict[str, Any]] = []
     for doc_id in project_doc_ids(conn, project_id):
         row = extract_paper(conn, doc_id, chat_fn, search_fn, override=overrides.get(doc_id))
+        if codebook and "tag" in row["fields"]:
+            row["fields"]["tag"] = snap_tag(row["fields"]["tag"], codebook)
         conn.execute(
             "INSERT INTO project_matrix (project_id, doc_id, schema, data) VALUES (?, ?, ?, ?) "
             "ON CONFLICT(project_id, doc_id) DO UPDATE SET schema=excluded.schema, "
