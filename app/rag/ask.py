@@ -8,7 +8,8 @@ SYSTEM = (
     "Anda asisten riset. Jawab HANYA berdasarkan KONTEKS yang diberikan. "
     "Tiap klaim WAJIB diikuti penanda sumber numerik seperti [1], [2] sesuai konteks. "
     "Dilarang mengarang sitasi atau fakta di luar konteks. "
-    "Jika konteks tidak cukup, katakan dengan jelas tidak cukup informasi. "
+    "Hanya jika TIDAK ADA bukti relevan sama sekali, katakan tidak cukup informasi. "
+    "Jika ada bukti, jawab langsung tanpa menambah catatan tentang keterbatasan konteks. "
     "Jawab ringkas, akurat, dalam Bahasa Indonesia kecuali kutipan asli."
 )
 
@@ -18,7 +19,7 @@ USER_TMPL = """PERTANYAAN:
 KONTEKS:
 {context}
 
-Tulis jawaban ringkas (3-8 kalimat) dengan sitasi [n] mengikuti konteks. Jika tidak ada bukti, katakan demikian."""
+Tulis jawaban ringkas (3-8 kalimat) dengan sitasi [n] mengikuti konteks."""
 
 
 def ask(

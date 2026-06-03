@@ -10,8 +10,9 @@ from typing import Iterable, List, Optional, Set
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
-from app.core.config import WATCH_FOLDERS
-from app.core.db import init_db
+from app.core.config import PROJECTS_DIR, WATCH_FOLDERS
+from app.core.db import document_exists, init_db
+from app.core.projects import add_papers, project_for_path
 from app.ingest.pipeline import file_hash, find_pdfs, ingest_pdf
 
 log = logging.getLogger("watcher")
@@ -113,6 +114,12 @@ def _worker(
                     continue
                 ok, msg = ingest_pdf(p, conn=conn)
                 log.info("%s %s -> %s", "OK" if ok else "SKIP/ERR", p, msg)
+                # If the file sits inside a project's folder, link it (add-only).
+                pid = project_for_path(conn, str(p))
+                if pid is not None:
+                    doc_id = document_exists(conn, file_hash(p))
+                    if doc_id is not None and add_papers(conn, pid, [doc_id]):
+                        log.info("linked %s -> project %d", p, pid)
             except Exception as e:
                 log.exception("worker error on %s: %s", item, e)
             finally:
@@ -135,14 +142,23 @@ def run(roots: Optional[List[str]] = None, db_path: Optional[str] = None) -> int
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
     )
-    folders = roots or WATCH_FOLDERS
-    if not folders:
-        print("No WATCH_FOLDERS configured.", file=sys.stderr)
-        return 2
+    folders = list(roots or WATCH_FOLDERS)
+    # Always watch the per-project base dir (created if missing) so dropping a PDF
+    # into a project subfolder auto-ingests + links — even with no WATCH_FOLDERS.
+    Path(PROJECTS_DIR).mkdir(parents=True, exist_ok=True)
+    folders.append(PROJECTS_DIR)
 
-    valid = [f for f in folders if Path(f).is_dir()]
+    # Keep existing dirs, deduped by resolved path (avoid double-watching overlaps).
+    seen: Set[str] = set()
+    valid: List[str] = []
+    for f in folders:
+        if Path(f).is_dir():
+            key = str(Path(f).resolve())
+            if key not in seen:
+                seen.add(key)
+                valid.append(f)
     if not valid:
-        print(f"None of the WATCH_FOLDERS exist: {folders}", file=sys.stderr)
+        print(f"No watchable folders: {folders}", file=sys.stderr)
         return 2
 
     q: "queue.Queue[Path]" = queue.Queue()

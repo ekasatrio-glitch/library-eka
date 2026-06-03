@@ -136,6 +136,7 @@ async function openProject(pid) {
   const d = await getJSON(`/projects/${pid}`);
   document.getElementById("proj-detail").hidden = false;
   document.getElementById("proj-title").textContent = d.name;
+  document.getElementById("proj-folder").textContent = d.folder_path ? `📁 Drop PDF ke: ${d.folder_path}` : "";
   renderProjPapers(d.papers || []);
   document.getElementById("proj-matrix-wrap").hidden = true;
   document.getElementById("proj-answer").textContent = "";

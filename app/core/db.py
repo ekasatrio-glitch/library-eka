@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS projects (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     description TEXT,
+    folder_path TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -139,8 +140,17 @@ def init_db(path: Optional[str] = None) -> sqlite3.Connection:
         f"chunk_id INTEGER PRIMARY KEY, embedding FLOAT[{EMBED_DIM}])"
     )
     conn.commit()
+    ensure_column(conn, "projects", "folder_path", "TEXT")  # migrate pre-feature DBs
     backfill_fts(conn)
     return conn
+
+
+def ensure_column(conn: sqlite3.Connection, table: str, column: str, decl: str) -> None:
+    """Add a column if a pre-existing table lacks it (CREATE IF NOT EXISTS won't)."""
+    cols = [r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()]
+    if column not in cols:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+        conn.commit()
 
 
 def backfill_fts(conn: sqlite3.Connection) -> int:

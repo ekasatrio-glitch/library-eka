@@ -1,7 +1,22 @@
 """Project/workspace data access. Corpus stays global; projects reference a
 subset of `documents` via the `project_documents` join (no duplication)."""
 
+import unicodedata
+from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+
+def slugify(name: str, max_len: int = 60) -> str:
+    """ASCII-safe folder slug (no regex): NFKD fold -> keep alnum, others -> '-'."""
+    s = unicodedata.normalize("NFKD", name or "").encode("ascii", "ignore").decode("ascii")
+    out = []
+    for ch in s.lower():
+        out.append(ch if ch.isalnum() else "-")
+    slug = "".join(out)
+    while "--" in slug:
+        slug = slug.replace("--", "-")
+    slug = slug.strip("-")[:max_len].strip("-")
+    return slug or "project"
 
 
 def create_project(conn, name: str, description: Optional[str] = None) -> int:
@@ -31,12 +46,34 @@ def list_projects(conn) -> List[Dict[str, Any]]:
 
 def get_project(conn, project_id: int) -> Optional[Dict[str, Any]]:
     r = conn.execute(
-        "SELECT id, name, description, created_at FROM projects WHERE id = ?",
+        "SELECT id, name, description, created_at, folder_path FROM projects WHERE id = ?",
         (project_id,),
     ).fetchone()
     if not r:
         return None
-    return {"id": r[0], "name": r[1], "description": r[2], "created_at": r[3]}
+    return {"id": r[0], "name": r[1], "description": r[2], "created_at": r[3], "folder_path": r[4]}
+
+
+def set_folder_path(conn, project_id: int, folder_path: str) -> None:
+    conn.execute(
+        "UPDATE projects SET folder_path = ? WHERE id = ?", (folder_path, project_id)
+    )
+    conn.commit()
+
+
+def project_for_path(conn, abspath: str) -> Optional[int]:
+    """Return the project whose folder_path is an ancestor of `abspath`, else None."""
+    p = Path(abspath).resolve()
+    rows = conn.execute(
+        "SELECT id, folder_path FROM projects WHERE folder_path IS NOT NULL"
+    ).fetchall()
+    for pid, folder in rows:
+        try:
+            if folder and p.is_relative_to(Path(folder).resolve()):
+                return pid
+        except (ValueError, OSError):
+            continue
+    return None
 
 
 def delete_project(conn, project_id: int) -> None:

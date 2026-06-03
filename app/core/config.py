@@ -23,6 +23,10 @@ WATCH_FOLDERS = [
     p.strip() for p in os.getenv("WATCH_FOLDERS", "").split(",") if p.strip()
 ]
 
+# Base dir for per-project folders. Each project gets a subfolder "<id>-<slug>";
+# PDFs dropped there are auto-ingested and linked to that project (watcher).
+PROJECTS_DIR = os.getenv("PROJECTS_DIR", str(Path.home() / "Documents" / "library-eka"))
+
 # Reranker for final precision: flashrank (fast, ONNX) | bge (bge-reranker-v2-m3) | none
 RERANKER = os.getenv("RERANKER", "flashrank").lower()
 BGE_RERANK_MODEL = os.getenv("BGE_RERANK_MODEL", "BAAI/bge-reranker-v2-m3")

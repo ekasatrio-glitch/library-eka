@@ -9,7 +9,7 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 
-from app.core.config import ROOT
+from app.core.config import PROJECTS_DIR, ROOT
 from app.core.db import connect, document_exists
 from app.core import projects as proj
 from app.ingest.pipeline import file_hash, ingest_pdf
@@ -17,6 +17,18 @@ from app.ingest.pipeline import file_hash, ingest_pdf
 router = APIRouter(prefix="/projects")
 
 UPLOAD_DIR = Path(ROOT) / "data" / "uploads"
+
+
+def ensure_project_folder(conn, project: dict) -> str:
+    """Create (and record) the project's watched folder; idempotent. Returns path."""
+    if project.get("folder_path"):
+        Path(project["folder_path"]).mkdir(parents=True, exist_ok=True)
+        return project["folder_path"]
+    folder = Path(PROJECTS_DIR) / f"{project['id']}-{proj.slugify(project['name'])}"
+    folder.mkdir(parents=True, exist_ok=True)
+    proj.set_folder_path(conn, project["id"], str(folder))
+    project["folder_path"] = str(folder)
+    return str(folder)
 
 
 class ProjectCreate(BaseModel):
@@ -39,6 +51,8 @@ def create(req: ProjectCreate) -> JSONResponse:
     conn = connect()
     try:
         pid = proj.create_project(conn, req.name, req.description)
+        p = proj.get_project(conn, pid)
+        ensure_project_folder(conn, p)  # auto-create the watched folder
         return JSONResponse({"id": pid, **proj.get_project(conn, pid)})
     finally:
         conn.close()
@@ -60,6 +74,7 @@ def detail(project_id: int) -> JSONResponse:
         p = proj.get_project(conn, project_id)
         if not p:
             raise HTTPException(404, "project not found")
+        ensure_project_folder(conn, p)  # backfill folder for pre-feature projects
         p["papers"] = proj.list_papers(conn, project_id)
         return JSONResponse(p)
     finally:
