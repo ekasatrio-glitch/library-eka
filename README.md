@@ -87,6 +87,26 @@ candidate set fed to the reranker.
 FTS5 stays in sync with `chunks` via triggers; `init_db()` backfills the index
 for pre-existing rows (drift detected via the `_docsize` shadow table).
 
+### Projects, synthesis matrix, rename (Phase 10–14)
+
+- **Projects/workspaces** (`/projects`): the corpus stays global; a project references
+  a subset of documents (no duplication, no re-embed). Import from the library or drop
+  a new PDF (ingested once, deduped by hash).
+- **Scoped chat** (`POST /projects/{id}/ask`): retrieval defaults to project papers;
+  `expand` widens to the whole library. A discovery `nudge` surfaces relevant library
+  papers not yet in the project.
+- **Synthesis matrix** (`POST /projects/{id}/matrix`): per-paper structured extraction
+  with auto-detected schema (`empiris` | `review` | `meta-analisis`), strictly grounded —
+  gaps are written explicitly (`tidak disebutkan` / `tidak dilaporkan`), weaknesses split
+  into author-stated vs. `saran — perlu verifikasi`, supporting papers from the corpus only,
+  notes are `(draft)`. Views: `matrix` | `linimasa` | `tema`.
+- **Export** (`/projects/{id}/matrix/export.xlsx|csv`): XLSX colors tag cells by the
+  project **codebook**; bootstrap the codebook from an old sheet/CSV (`closed coding`).
+- **Rename by title** (`/rename/preview` → `/rename/apply` → `/rename/undo`): semantic
+  title extraction (LLM + optional Crossref, **no regex**), registry-safe (file move +
+  `documents.path` update in one transaction, hash unchanged → no re-embed), collision
+  suffixes, full undo log.
+
 ### Tests
 
 ```bash

@@ -25,6 +25,10 @@ RERANKER = os.getenv("RERANKER", "flashrank").lower()
 BGE_RERANK_MODEL = os.getenv("BGE_RERANK_MODEL", "BAAI/bge-reranker-v2-m3")
 RERANK_POOL = int(os.getenv("RERANK_POOL", "40"))  # candidates fed to the reranker
 
+# Title-based PDF rename (Phase 14). Pattern fields: {authors} {year} {title}
+RENAME_PATTERN = os.getenv("RENAME_PATTERN", "{authors} ({year}) - {title}")
+CROSSREF_ENABLED = os.getenv("CROSSREF_ENABLED", "true").lower() in ("1", "true", "yes")
+
 
 def llm_config() -> tuple[str, str, str]:
     if LLM_PROVIDER == "jatevo":

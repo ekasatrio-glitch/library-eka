@@ -87,6 +87,17 @@ CREATE TABLE IF NOT EXISTS project_matrix (
     FOREIGN KEY (doc_id) REFERENCES documents(id) ON DELETE CASCADE
 );
 
+-- Undo log for title-based renames (Phase 14). One row per applied rename.
+CREATE TABLE IF NOT EXISTS rename_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    doc_id INTEGER NOT NULL,
+    old_path TEXT NOT NULL,
+    new_path TEXT NOT NULL,
+    batch TEXT,
+    undone INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Sparse keyword index (BM25). External-content FTS5 over chunks.text:
 -- the index stores tokens only; text stays in `chunks` (rowid == chunks.id).
 CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(

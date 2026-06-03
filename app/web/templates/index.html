@@ -69,6 +69,17 @@
       <thead><tr><th>Judul</th><th>Penulis</th><th>Tahun</th><th>Folder</th><th>Aksi</th></tr></thead>
       <tbody></tbody>
     </table>
+
+    <div class="rename-box">
+      <h4>Rename PDF sesuai judul (LLM + Crossref, aman registry)</h4>
+      <div class="row">
+        <button id="rename-preview-btn" type="button">Preview</button>
+        <button id="rename-apply-btn" type="button" disabled>Terapkan</button>
+        <button id="rename-undo-btn" type="button">Undo batch terakhir</button>
+        <span id="rename-status" class="muted"></span>
+      </div>
+      <table id="rename-table"><thead><tr><th>Nama lama</th><th>→ Nama baru</th><th>Status</th></tr></thead><tbody></tbody></table>
+    </div>
   </section>
 
   <section id="tab-projects" class="tab">

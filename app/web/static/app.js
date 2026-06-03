@@ -296,3 +296,45 @@ document.getElementById("codebook-form").addEventListener("submit", async (e) =>
   info.textContent = `Codebook: ${res.learned} tag dipelajari (closed coding aktif untuk matriks berikutnya).`;
   e.target.reset();
 });
+
+// ---------- Rename by title (Phase 14) ----------
+function baseName(p) { return (p || "").split("/").pop(); }
+
+document.getElementById("rename-preview-btn").addEventListener("click", async () => {
+  const status = document.getElementById("rename-status");
+  const tb = document.querySelector("#rename-table tbody");
+  status.textContent = "Menyusun preview (LLM+Crossref)...";
+  tb.innerHTML = "";
+  try {
+    const data = await getJSON("/rename/preview");
+    tb.innerHTML = (data.plan || []).map(p =>
+      `<tr><td>${escapeHtml(baseName(p.old_path))}</td>
+       <td>${escapeHtml(p.new_path ? baseName(p.new_path) : "")}</td>
+       <td>${escapeHtml(p.status)}</td></tr>`
+    ).join("");
+    status.textContent = `${data.count} file akan di-rename.`;
+    document.getElementById("rename-apply-btn").disabled = data.count === 0;
+  } catch (err) { status.textContent = "Error: " + err.message; }
+});
+
+document.getElementById("rename-apply-btn").addEventListener("click", async () => {
+  const status = document.getElementById("rename-status");
+  if (!confirm("Terapkan rename ke semua file di preview?")) return;
+  status.textContent = "Menerapkan...";
+  try {
+    const res = await postJSON("/rename/apply", { batch: "ui-" + Date.now() });
+    status.textContent = `Diterapkan: ${res.applied}, error: ${(res.errors || []).length}.`;
+    document.getElementById("rename-apply-btn").disabled = true;
+    document.querySelector("#lib-form").dispatchEvent(new Event("submit"));
+  } catch (err) { status.textContent = "Error: " + err.message; }
+});
+
+document.getElementById("rename-undo-btn").addEventListener("click", async () => {
+  const status = document.getElementById("rename-status");
+  status.textContent = "Undo...";
+  try {
+    const res = await postJSON("/rename/undo", {});
+    status.textContent = res.batch ? `Undo batch ${res.batch}: ${res.reverted.length} dikembalikan.` : "Tidak ada batch untuk di-undo.";
+    document.querySelector("#lib-form").dispatchEvent(new Event("submit"));
+  } catch (err) { status.textContent = "Error: " + err.message; }
+});
