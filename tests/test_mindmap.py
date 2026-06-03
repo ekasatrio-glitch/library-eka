@@ -45,3 +45,32 @@ def test_mindmap_builds_markdown():
         assert len(res["subtopics"]) == 4
         assert len(res["citations"]) >= 1
         conn.close()
+
+
+def test_mindmap_strips_citation_markers():
+    from app.rag import mindmap as mm
+
+    # OUTLINE prompt must not instruct [n] tags anymore.
+    assert "[n]" not in mm.OUTLINE_SYS
+
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        db = str(root / "t.db")
+        make_pdf(root / "a.pdf", "Insulin glucose pancreas regulation")
+        conn = init_db(db)
+        with patch("app.ingest.pipeline.embed_texts", side_effect=_embed_stub):
+            ingest_pdf(root / "a.pdf", conn=conn)
+
+        chat_outputs = iter([
+            '["mekanisme insulin", "resistensi insulin"]',
+            "# Diabetes\n## Mekanisme\n- Insulin atur glukosa [1]\n- Sekresi [2][3]\n",
+        ])
+        with patch("app.rag.retriever.embed_one", side_effect=lambda q: _embed_stub([q])[0]), \
+             patch("app.rag.mindmap.chat", side_effect=lambda *a, **kw: next(chat_outputs)):
+            res = build_mindmap("diabetes", breadth=2, top_k=3, conn=conn)
+
+        import re as _re
+        assert not _re.search(r"\[\d+\]", res["markdown"]), res["markdown"]
+        assert "Insulin atur glukosa" in res["markdown"]
+        assert len(res["citations"]) >= 1
+        conn.close()

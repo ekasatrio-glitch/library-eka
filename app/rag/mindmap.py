@@ -1,4 +1,5 @@
 import json
+import re
 from typing import Any, Dict, List, Optional
 
 from app.rag.citation import build_citations, format_context
@@ -15,9 +16,15 @@ OUTLINE_SYS = (
     "Anda menyusun outline mindmap berbasis KONTEKS. Keluarkan markdown hierarki:\n"
     "- baris pertama: '# <topik>'\n"
     "- level 2 (##): tiap subtopik\n"
-    "- level 3 (-): poin penting (3-6 per subtopik), tiap poin diakhiri tag sumber [n]\n"
+    "- level 3 (-): poin penting (3-6 per subtopik), ringkas dan mudah dibaca\n"
+    "JANGAN tambahkan nomor/penanda sumber dalam tanda kurung siku di mindmap.\n"
     "Hanya gunakan informasi dari KONTEKS. Jangan karang. Bahasa Indonesia."
 )
+
+
+def _strip_citation_tags(text: str) -> str:
+    """Remove numeric source markers like [1] or [2][3] from mindmap text."""
+    return re.sub(r"\s*\[\d+\]", "", text or "")
 
 
 def _expand_subtopics(topic: str, n: int) -> List[str]:
@@ -62,7 +69,7 @@ def build_mindmap(
     md = chat(OUTLINE_SYS, f"TOPIK: {topic}\nSUBTOPIK:\n- " + "\n- ".join(subs) + f"\n\nKONTEKS:\n{ctx}", temperature=0.3, max_tokens=1500)
     citations = build_citations(all_hits)
     return {
-        "markdown": md.strip(),
+        "markdown": _strip_citation_tags(md).strip(),
         "citations": [c.to_dict() for c in citations],
         "subtopics": subs,
     }
