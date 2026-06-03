@@ -38,7 +38,7 @@ def reingest_all(
         return {"status": "skip", "reason": "already migrated", "migrated": 0}
 
     rows = conn.execute("SELECT id, path FROM documents ORDER BY id").fetchall()
-    migrated, missing, empty = 0, 0, 0
+    migrated, missing, empty, errors = 0, 0, 0, 0
     for doc_id, path in rows:
         p = Path(path)
         if not p.exists():
@@ -47,30 +47,42 @@ def reingest_all(
             continue
         try:
             pages = extract_pages(p)
-            delete_chunks(conn, doc_id)  # triggers also clear FTS5 rows
             chunks = chunk_pages(pages)
             if not chunks:
+                delete_chunks(conn, doc_id)  # triggers also clear FTS5 rows
                 empty += 1
                 set_document_status(conn, doc_id, "empty")
             else:
                 embs = embed_fn([c.text for c in chunks])
+                if len(embs) != len(chunks):
+                    raise ValueError(
+                        f"embedder returned {len(embs)} vectors for {len(chunks)} chunks"
+                    )
+                # Re-embed succeeded -> only now drop the old chunks, so a failure
+                # above never leaves the document with zero chunks/vectors.
+                delete_chunks(conn, doc_id)
                 for c, emb in zip(chunks, embs):
                     insert_chunk(conn, doc_id, c.page_start, c.page_end, c.text, emb)
                 set_document_status(conn, doc_id, "done")
                 migrated += 1
         except Exception as e:  # keep going; one bad PDF shouldn't stop the batch
+            errors += 1
             set_document_status(conn, doc_id, "error")
             print(f"[reingest] error on doc {doc_id} ({p.name}): {e}", file=sys.stderr)
         if progress:
-            progress(migrated + missing + empty, len(rows), doc_id)
+            progress(migrated + missing + empty + errors, len(rows), doc_id)
 
-    set_meta(conn, MIGRATION_KEY, MIGRATION_TAG)
+    # Only mark the migration done if nothing failed, so a re-run retries the
+    # failures instead of being skipped by the idempotency guard.
+    if errors == 0:
+        set_meta(conn, MIGRATION_KEY, MIGRATION_TAG)
     return {
-        "status": "done",
+        "status": "done" if errors == 0 else "partial",
         "total": len(rows),
         "migrated": migrated,
         "missing": missing,
         "empty": empty,
+        "errors": errors,
     }
 
 

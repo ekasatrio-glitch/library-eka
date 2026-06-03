@@ -108,12 +108,19 @@ def apply_renames(conn, plan: List[Dict[str, Any]], batch: str) -> Dict[str, Any
             conn.commit()
         except Exception as e:
             conn.rollback()
-            # Revert the disk move to keep file/registry consistent.
+            # Revert the disk move to keep file/registry consistent. If the revert
+            # itself fails, surface it loudly — the file is orphaned at new_path
+            # while the registry still points at old_path.
+            revert_err = None
             try:
                 os.rename(new_path, old_path)
-            except OSError:
-                pass
-            errors.append({**entry, "error": f"db: {e}"})
+            except OSError as re:
+                revert_err = str(re)
+            err = {**entry, "error": f"db: {e}"}
+            if revert_err:
+                err["revert_failed"] = revert_err
+                err["orphaned_at"] = str(new_path)
+            errors.append(err)
             continue
         applied.append(entry)
     return {"batch": batch, "applied": applied, "skipped": skipped, "errors": errors}
@@ -136,12 +143,22 @@ def undo_last(conn) -> Dict[str, Any]:
     reverted, errors = [], []
     for log_id, doc_id, old_path, new_path in entries:
         np, op = Path(new_path), Path(old_path)
-        if np.exists() and not op.exists():
+        if op.exists():
+            # Original already present: only safe if the renamed file isn't also
+            # there (would mean an unrelated file sits at old_path).
+            if np.exists():
+                errors.append({"doc_id": doc_id, "error": "both old and new paths exist; skipped"})
+                continue
+        elif np.exists():
             try:
                 os.rename(np, op)
             except OSError as e:
                 errors.append({"doc_id": doc_id, "error": str(e)})
                 continue
+        else:
+            # Neither file exists — can't safely restore; don't rewrite the registry.
+            errors.append({"doc_id": doc_id, "error": "neither old nor new path exists; skipped"})
+            continue
         conn.execute("UPDATE documents SET path = ? WHERE id = ?", (str(op), doc_id))
         conn.execute("UPDATE rename_log SET undone = 1 WHERE id = ?", (log_id,))
         conn.commit()

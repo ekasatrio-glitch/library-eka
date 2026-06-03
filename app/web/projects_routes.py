@@ -1,6 +1,7 @@
 """Project/workspace endpoints (Phase 10) + scoped chat/matrix wiring (Phase 11-13)."""
 
 import shutil
+import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -112,13 +113,22 @@ async def upload_pdf(project_id: int, file: UploadFile = File(...)) -> JSONRespo
             raise HTTPException(400, "only .pdf accepted")
 
         UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-        dest = UPLOAD_DIR / Path(file.filename).name
-        with dest.open("wb") as out:
+        # Name the stored file by content hash, NOT the client filename: two
+        # different PDFs sharing a filename would otherwise overwrite each other
+        # on disk and (via upsert-by-path) clobber the first document's registry
+        # row. Hash naming also dedups identical re-uploads to the same path.
+        tmp = UPLOAD_DIR / f".incoming-{uuid.uuid4().hex}.pdf"
+        with tmp.open("wb") as out:
             shutil.copyfileobj(file.file, out)
+        h = file_hash(tmp)
+        dest = UPLOAD_DIR / f"{h}.pdf"
+        if dest.exists():
+            tmp.unlink(missing_ok=True)
+        else:
+            tmp.rename(dest)
 
         # Ingest into global corpus (idempotent: skips if hash already present).
         processed, reason = ingest_pdf(dest, conn=conn)
-        h = file_hash(dest)
         doc_id = document_exists(conn, h)
         if doc_id is None:
             raise HTTPException(422, f"ingest failed: {reason}")

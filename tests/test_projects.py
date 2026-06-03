@@ -186,3 +186,72 @@ def test_scoped_ask_and_nudge(tmp_path, monkeypatch):
         r2 = client.post(f"/projects/{pid}/ask", json={"question": "quantum?", "expand": True})
     assert captured["filters"] is None  # expanded -> whole library
     assert r2.json()["scoped"] is False
+
+
+def test_upload_same_filename_different_content_no_clobber(tmp_path, monkeypatch):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    import fitz
+    import app.core.db as dbmod
+    import app.web.projects_routes as pr
+    from app.core.db import init_db
+
+    db = str(tmp_path / "u.db")
+    monkeypatch.setattr(dbmod, "DB_PATH", db)
+    monkeypatch.setattr(pr, "UPLOAD_DIR", tmp_path / "uploads")
+    conn = init_db(db)
+    pid = proj.create_project(conn, "P")
+    conn.close()
+
+    def mkbytes(text):
+        d = fitz.open(); p = d.new_page(); p.insert_text((72, 72), text, fontsize=10)
+        out = tmp_path / "tmp.pdf"; d.save(str(out)); d.close()
+        return out.read_bytes()
+
+    app = FastAPI(); app.include_router(pr.router)
+    client = TestClient(app)
+
+    a = mkbytes("CONTENT ALPHA aaa unique")
+    b = mkbytes("CONTENT BETA bbb unique")
+    with patch("app.ingest.pipeline.embed_texts", side_effect=_embed_stub):
+        r1 = client.post(f"/projects/{pid}/upload", files={"file": ("paper.pdf", a, "application/pdf")})
+        r2 = client.post(f"/projects/{pid}/upload", files={"file": ("paper.pdf", b, "application/pdf")})
+    d1, d2 = r1.json()["doc_id"], r2.json()["doc_id"]
+    assert d1 != d2  # distinct documents, no clobber
+
+    c = init_db(db)
+    # Two documents, two distinct on-disk files, contents intact.
+    assert c.execute("SELECT COUNT(*) FROM documents").fetchone()[0] == 2
+    paths = [r[0] for r in c.execute("SELECT path FROM documents ORDER BY id").fetchall()]
+    assert len(set(paths)) == 2
+    import fitz as _f
+    texts = sorted(_f.open(p)[0].get_text()[:20] for p in paths)
+    assert texts[0].startswith("CONTENT ALPHA") and texts[1].startswith("CONTENT BETA")
+    c.close()
+
+
+def test_upload_identical_content_dedups(tmp_path, monkeypatch):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    import fitz
+    import app.core.db as dbmod
+    import app.web.projects_routes as pr
+    from app.core.db import init_db
+
+    db = str(tmp_path / "u2.db")
+    monkeypatch.setattr(dbmod, "DB_PATH", db)
+    monkeypatch.setattr(pr, "UPLOAD_DIR", tmp_path / "uploads")
+    conn = init_db(db); pid = proj.create_project(conn, "P"); conn.close()
+
+    d = fitz.open(); p = d.new_page(); p.insert_text((72, 72), "same content xyz", fontsize=10)
+    out = tmp_path / "s.pdf"; d.save(str(out)); d.close()
+    data = out.read_bytes()
+
+    app = FastAPI(); app.include_router(pr.router); client = TestClient(app)
+    with patch("app.ingest.pipeline.embed_texts", side_effect=_embed_stub):
+        r1 = client.post(f"/projects/{pid}/upload", files={"file": ("a.pdf", data, "application/pdf")})
+        r2 = client.post(f"/projects/{pid}/upload", files={"file": ("b.pdf", data, "application/pdf")})
+    assert r1.json()["doc_id"] == r2.json()["doc_id"]  # deduped by hash
+    c = init_db(db)
+    assert c.execute("SELECT COUNT(*) FROM documents").fetchone()[0] == 1
+    c.close()

@@ -77,3 +77,36 @@ def test_reingest_empty_corpus_is_noop():
         assert res["status"] == "done" and res["total"] == 0 and res["migrated"] == 0
         assert get_meta(conn, ri.MIGRATION_KEY) == ri.MIGRATION_TAG
         conn.close()
+
+
+def test_reingest_embed_length_mismatch_does_not_lose_chunks():
+    """A short embedder result must NOT delete existing chunks or set the flag."""
+    with tempfile.TemporaryDirectory() as td:
+        db = str(Path(td) / "t.db")
+        conn = init_db(db)
+        a = Path(td) / "a.pdf"
+        # Many rendered lines across pages -> enough chars for multiple chunks.
+        doc = fitz.open()
+        for _pg in range(3):
+            page = doc.new_page()
+            tw = fitz.TextWriter(page.rect)
+            for ln in range(50):
+                tw.append((60, 60 + ln * 14), f"line {ln} alpha beta gamma delta epsilon zeta eta theta")
+            tw.write_text(page)
+        doc.save(str(a)); doc.close()
+
+        with patch("app.ingest.pipeline.embed_texts", side_effect=_embed):
+            ingest_pdf(a, conn=conn)
+        chunks_before = conn.execute("SELECT COUNT(*) FROM chunks").fetchone()[0]
+        assert chunks_before > 1
+
+        def bad_embed(texts):
+            return [[0.0] * 768]  # too few vectors (1 < n chunks)
+
+        res = ri.reingest_all(conn, embed_fn=bad_embed)
+        assert res["status"] == "partial" and res["errors"] == 1
+        # Old chunks intact (delete happens only after a valid embed).
+        assert conn.execute("SELECT COUNT(*) FROM chunks").fetchone()[0] == chunks_before
+        # Flag NOT set -> a corrected re-run will retry.
+        assert get_meta(conn, ri.MIGRATION_KEY) != ri.MIGRATION_TAG
+        conn.close()

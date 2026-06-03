@@ -197,8 +197,8 @@ def extract_paper(
         if key == "kelemahan_saran" and val and val != gap and not val.lower().startswith("saran"):
             val = SUGGEST_PREFIX + val
         fields[key] = val
-        if val != gap:
-            refs[key] = page_ref  # grounded to this paper
+        if val != gap and page_ref:
+            refs[key] = list(page_ref)  # fresh list per field (no shared alias)
 
     # Supporting papers: corpus-only semantic match, excluding self. Real cites.
     support = _supporting_papers(conn, doc_id, title, fields, search_fn, support_k)
@@ -213,6 +213,8 @@ def extract_paper(
             fields["kelemahan_tidak_dilaporkan"] = (
                 "Tidak dilaporkan: " + ", ".join(missing)
             )
+            if page_ref:
+                refs["kelemahan_tidak_dilaporkan"] = list(page_ref)
 
     source = f"{authors} ({year})" if authors else f"{title} ({year})" if year else title
     return {
