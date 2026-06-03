@@ -131,3 +131,23 @@ def test_rename_collision_gets_suffix():
         existing = sorted(p.name for p in tdp.glob("*.pdf"))
         assert existing == ["X (2020) - Same Title (2).pdf", "X (2020) - Same Title.pdf"]
         conn.close()
+
+
+def test_retitle_document_updates_registry():
+    import json
+    from app.ingest import title as ti
+    with tempfile.TemporaryDirectory() as td:
+        conn, db, doc_id, chash, pdf = _seed(Path(td))
+        # Heuristic gave a wrong title at ingest.
+        conn.execute("UPDATE documents SET title='Open Access' WHERE id=?", (doc_id,))
+        conn.commit()
+
+        def fake_chat(system, user):
+            return json.dumps({"title": "The Real Paper Title", "authors": ["Jane Doe", "John Roe"], "year": 2021})
+
+        res = ti.retitle_document(conn, doc_id, fake_chat, use_crossref=False)
+        assert res["status"] == "updated"
+        row = conn.execute("SELECT title, authors, year FROM documents WHERE id=?", (doc_id,)).fetchone()
+        assert row[0] == "The Real Paper Title"
+        assert row[1] == "Jane Doe; John Roe" and row[2] == 2021
+        conn.close()

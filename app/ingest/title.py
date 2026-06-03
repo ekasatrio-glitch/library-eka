@@ -155,6 +155,35 @@ def extract_meta(
     return {"title": title, "authors": authors, "year": year}
 
 
+def retitle_document(conn, doc_id: int, chat_fn: Callable, use_crossref: bool = True) -> Dict[str, Any]:
+    """Re-extract title/authors/year for an existing document (LLM + Crossref) and
+    update the registry. Fixes weak heuristic titles (e.g. journal banners)."""
+    row = conn.execute("SELECT path FROM documents WHERE id = ?", (doc_id,)).fetchone()
+    if not row:
+        return {"doc_id": doc_id, "status": "not found"}
+    p = Path(row[0])
+    if not p.exists():
+        return {"doc_id": doc_id, "status": "missing"}
+    try:
+        meta = extract_meta(p, chat_fn, use_crossref=use_crossref)
+    except Exception as e:
+        return {"doc_id": doc_id, "status": f"error: {e}"}
+    title = (meta.get("title") or "").strip()
+    if not title:
+        return {"doc_id": doc_id, "status": "no title found"}
+    authors = meta.get("authors") or []
+    authors_s = "; ".join(a for a in authors if a) if isinstance(authors, list) else str(authors)
+    year = meta.get("year")
+    conn.execute(
+        "UPDATE documents SET title = ?, "
+        "authors = COALESCE(?, authors), year = COALESCE(?, year) WHERE id = ?",
+        (title, authors_s or None, year, doc_id),
+    )
+    conn.commit()
+    return {"doc_id": doc_id, "status": "updated", "title": title,
+            "authors": authors_s, "year": year}
+
+
 def authors_label(authors: List[str]) -> str:
     """Short author label: 'Surname' / 'Surname dkk.' (Indonesian 'et al.')."""
     if not authors:

@@ -339,3 +339,15 @@ document.getElementById("rename-undo-btn").addEventListener("click", async () =>
     document.querySelector("#lib-form").dispatchEvent(new Event("submit"));
   } catch (err) { status.textContent = "Error: " + err.message; }
 });
+
+// ---------- Perbaiki judul (LLM + Crossref) ----------
+document.getElementById("retitle-btn").addEventListener("click", async () => {
+  const status = document.getElementById("retitle-status");
+  if (!confirm("Perbaiki judul semua paper via LLM + Crossref? (butuh API key + internet)")) return;
+  status.textContent = "Memperbaiki judul...";
+  try {
+    const res = await postJSON("/library/retitle", {});
+    status.textContent = `${res.updated} judul diperbarui.`;
+    document.querySelector("#lib-form").dispatchEvent(new Event("submit"));
+  } catch (err) { status.textContent = "Error: " + err.message; }
+});

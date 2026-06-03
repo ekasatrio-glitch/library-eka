@@ -153,6 +153,33 @@ def get_pdf(doc_id: int):
     return FileResponse(str(p), media_type="application/pdf", filename=p.name)
 
 
+class RetitleRequest(BaseModel):
+    doc_ids: Optional[List[int]] = None  # None = all documents
+
+
+@router.post("/library/retitle")
+def post_retitle(req: RetitleRequest) -> JSONResponse:
+    """Re-extract titles (LLM + Crossref) for documents whose ingest-time heuristic
+    title was wrong (e.g. picked up a journal banner). Updates the registry."""
+    from app.rag.generator import chat
+    from app.ingest.title import retitle_document
+
+    conn = connect()
+    try:
+        if req.doc_ids:
+            ids = [int(i) for i in req.doc_ids]
+        else:
+            ids = [r[0] for r in conn.execute("SELECT id FROM documents ORDER BY id").fetchall()]
+        try:
+            results = [retitle_document(conn, did, chat) for did in ids]
+        except RuntimeError as e:  # missing LLM key
+            raise HTTPException(status_code=503, detail=str(e))
+        updated = sum(1 for r in results if r.get("status") == "updated")
+        return JSONResponse({"updated": updated, "results": results})
+    finally:
+        conn.close()
+
+
 @router.get("/", response_class=HTMLResponse)
 def index(request: Request):
     return templates.TemplateResponse(request, "index.html", {})
