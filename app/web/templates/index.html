@@ -20,6 +20,7 @@
 
 <main class="layout">
   <section id="tab-ask" class="tab active">
+    <div id="ask-chat-thread" class="chat-thread"></div>
     <form id="ask-form">
       <textarea name="question" placeholder="Tanya korpus..." rows="3" required></textarea>
       <div class="row">
@@ -29,8 +30,6 @@
         <button type="submit">Tanya</button>
       </div>
     </form>
-    <div id="ask-answer" class="answer"></div>
-    <ol id="ask-citations" class="citations"></ol>
   </section>
 
   <section id="tab-draft" class="tab">
@@ -91,64 +90,94 @@
   </section>
 
   <section id="tab-projects" class="tab">
-    <form id="proj-create-form" class="row">
-      <input name="name" placeholder="Nama proyek baru..." required />
-      <input name="description" placeholder="Deskripsi (opsional)" />
-      <button type="submit">Buat</button>
-    </form>
-    <div class="layout-2col">
-      <div>
-        <h3>Proyek</h3>
-        <ul id="proj-list" class="proj-list"></ul>
+    <!-- HOME: grid of projects -->
+    <div id="proj-home">
+      <div class="row proj-home-bar">
+        <form id="proj-create-form" class="row">
+          <input name="name" placeholder="Nama proyek baru..." required />
+          <input name="description" placeholder="Deskripsi (opsional)" />
+          <button type="submit">+ Buat proyek</button>
+        </form>
       </div>
-      <div id="proj-detail" class="proj-detail" hidden>
+      <div id="proj-grid" class="proj-grid"></div>
+    </div>
+
+    <!-- WORKSPACE: one open project -->
+    <div id="proj-workspace" hidden>
+      <div class="ws-header">
+        <button id="proj-back" type="button" class="link">← Semua proyek</button>
         <h3 id="proj-title"></h3>
-        <div id="proj-folder" class="muted" title="Drop PDF ke folder ini -> auto-ingest + taut ke proyek (watcher harus jalan)"></div>
+        <span id="proj-count" class="badge"></span>
+        <span class="ws-spacer"></span>
+        <button id="proj-delete-btn" type="button" class="danger small">Hapus proyek</button>
+      </div>
+      <div id="proj-folder" class="muted folder-hint"
+           title="Drop PDF ke folder ini -> auto-ingest + taut ke proyek (watcher harus jalan)"></div>
+
+      <nav id="proj-subnav" class="subnav">
+        <button class="subnav-btn active" data-subtab="paper" type="button">Paper</button>
+        <button class="subnav-btn" data-subtab="chat" type="button">Chat</button>
+        <button class="subnav-btn" data-subtab="matrix" type="button">Matriks</button>
+      </nav>
+
+      <!-- PAPER -->
+      <div class="subpanel active" data-panel="paper">
         <div class="row">
-          <button id="proj-import-toggle" type="button">+ Impor dari pustaka</button>
-          <form id="proj-upload-form" class="row">
-            <input type="file" name="file" accept="application/pdf" />
-            <button type="submit">Unggah PDF</button>
-          </form>
-          <button id="proj-matrix-btn" type="button">Buat Matriks</button>
-          <button id="proj-delete-btn" type="button" class="danger">Hapus proyek</button>
+          <button id="proj-addpaper-toggle" type="button">+ Tambah paper</button>
         </div>
-
-        <div id="proj-import-panel" hidden>
-          <input id="proj-import-search" placeholder="Cari pustaka..." />
-          <div id="proj-import-list" class="import-list"></div>
-          <button id="proj-import-apply" type="button">Tambahkan terpilih</button>
+        <div id="proj-add-panel" hidden>
+          <div class="row">
+            <form id="proj-upload-form" class="row">
+              <input type="file" name="file" accept="application/pdf" />
+              <button type="submit">Unggah PDF</button>
+            </form>
+            <button id="proj-import-toggle" type="button">Impor dari pustaka</button>
+          </div>
+          <div id="proj-import-panel" hidden>
+            <input id="proj-import-search" placeholder="Cari pustaka..." />
+            <div id="proj-import-list" class="import-list"></div>
+            <button id="proj-import-apply" type="button">Tambahkan terpilih</button>
+          </div>
         </div>
+        <table id="proj-papers">
+          <thead><tr><th>Judul</th><th>Tahun</th><th>Penulis</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
 
-        <h4>Paper dalam proyek</h4>
-        <table id="proj-papers"><thead><tr><th>Judul</th><th>Tahun</th><th>Penulis</th><th></th></tr></thead><tbody></tbody></table>
-
-        <h4>Chat proyek</h4>
-        <form id="proj-ask-form">
+      <!-- CHAT -->
+      <div class="subpanel" data-panel="chat" hidden>
+        <div id="proj-chat-thread" class="chat-thread"></div>
+        <form id="proj-ask-form" class="chat-form">
           <textarea name="question" placeholder="Tanya paper proyek..." rows="2" required></textarea>
           <label class="chk"><input type="checkbox" id="proj-expand" /> Perluas ke seluruh library</label>
           <button type="submit">Tanya</button>
         </form>
-        <div id="proj-answer" class="answer"></div>
-        <ol id="proj-citations" class="citations"></ol>
-        <div id="proj-nudge" class="nudge"></div>
+      </div>
 
-        <div id="proj-matrix-wrap" hidden>
-          <h4>Matriks Sintesis</h4>
-          <div class="row">
-            <label>Tampilan:
-              <select id="matrix-view"><option value="matrix">Matriks</option><option value="linimasa">Linimasa</option><option value="tema">Tema</option></select>
-            </label>
-            <a id="matrix-xlsx" href="#" target="_blank">Ekspor XLSX</a>
-            <a id="matrix-csv" href="#" target="_blank">Ekspor CSV</a>
-            <form id="codebook-form" class="row" title="Pelajari tag+warna dari sheet/CSV lama (closed coding)">
-              <input type="file" name="file" accept=".csv,.xlsx" />
-              <button type="submit">Bootstrap codebook</button>
-            </form>
-          </div>
-          <div id="codebook-info" class="muted"></div>
-          <div id="matrix-output"></div>
+      <!-- MATRIX -->
+      <div class="subpanel" data-panel="matrix" hidden>
+        <div class="row">
+          <button id="proj-matrix-btn" type="button">Buat / Refresh Matriks</button>
+          <label>Tampilan:
+            <select id="matrix-view">
+              <option value="matrix">Matriks</option>
+              <option value="linimasa">Linimasa</option>
+              <option value="tema">Tema</option>
+            </select>
+          </label>
+          <a id="matrix-xlsx" href="#" target="_blank">Ekspor XLSX</a>
+          <a id="matrix-csv" href="#" target="_blank">Ekspor CSV</a>
         </div>
+        <details class="codebook-details">
+          <summary>Codebook (closed coding)</summary>
+          <form id="codebook-form" class="row" title="Pelajari tag+warna dari sheet/CSV lama">
+            <input type="file" name="file" accept=".csv,.xlsx" />
+            <button type="submit">Bootstrap codebook</button>
+          </form>
+          <div id="codebook-info" class="muted"></div>
+        </details>
+        <div id="matrix-output"></div>
       </div>
     </div>
   </section>
