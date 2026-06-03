@@ -65,6 +65,23 @@ Stops/starts via `launchctl unload|load -w ~/Library/LaunchAgents/com.eka.librar
 | GET    | `/library`       | Indexed docs + folder/year/author filters    |
 | GET    | `/pdf/{id}`      | Stream the source PDF                        |
 
+### Extraction (Docling)
+
+PDF text extraction uses **Docling** by default (`EXTRACTOR=docling`): correct
+multi-column reading order, tables exported as inline **markdown** (so quantitative
+data is indexed and can feed matrix fields), and optional **OCR** for scanned PDFs
+(`OCR=true`, slower). Per-page provenance is preserved so chunk `page_start/page_end`
+— and click-to-page citations — stay accurate. The extractor output interface is
+unchanged (`list[(page_no, text)]`), so chunker/embedder/registry/FTS5 are untouched.
+First Docling run downloads layout/table models (hundreds of MB). On any Docling
+error it falls back to `pymupdf`. Embeddings remain **nomic** (dim 768).
+
+Migrate an existing corpus to Docling extraction (one-time, embeddings retained):
+
+```bash
+python -m app.ingest.reingest --all        # idempotent; --force to re-run
+```
+
 ### Retrieval (hybrid + rerank)
 
 `app.rag.retriever.search()` runs **hybrid retrieval**: dense (sqlite-vec KNN) and

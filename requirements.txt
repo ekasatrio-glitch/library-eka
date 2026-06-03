@@ -12,4 +12,5 @@ pytest
 flashrank
 python-multipart
 openpyxl
+docling
 # Optional (RERANKER=bge): pip install sentence-transformers

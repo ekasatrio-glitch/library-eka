@@ -7,6 +7,9 @@ load_dotenv(ROOT / ".env")
 
 DB_PATH = os.getenv("DB_PATH", str(ROOT / "data" / "library.db"))
 EMBED_MODEL = os.getenv("EMBED_MODEL", "nomic-embed-text")
+# PDF extraction backend: docling (reading order, tables, OCR) | pymupdf (fast)
+EXTRACTOR = os.getenv("EXTRACTOR", "docling").lower()
+OCR = os.getenv("OCR", "false").lower() in ("1", "true", "yes")
 EMBED_DIM = int(os.getenv("EMBED_DIM", "768"))
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
