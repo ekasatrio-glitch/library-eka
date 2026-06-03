@@ -131,3 +131,58 @@ def test_project_api_endpoints(tmp_path, monkeypatch):
 
     assert client.delete(f"/projects/{pid}").status_code == 200
     assert client.get(f"/projects/{pid}").status_code == 404
+
+
+def test_scoped_ask_and_nudge(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+    from fastapi import FastAPI
+    import app.core.db as dbmod
+    import app.web.projects_routes as pr
+
+    db = str(tmp_path / "scope.db")
+    monkeypatch.setattr(dbmod, "DB_PATH", db)
+    conn = init_db(db)
+    a, b = tmp_path / "inproj.pdf", tmp_path / "outproj.pdf"
+    _mk(a, "quantum entanglement bell")
+    _mk(b, "quantum decoherence noise")
+    with patch("app.ingest.pipeline.embed_texts", side_effect=_embed_stub):
+        ingest_pdf(a, conn=conn)
+        ingest_pdf(b, conn=conn)
+    ids = [r[0] for r in conn.execute("SELECT id FROM documents ORDER BY id").fetchall()]
+    pid = proj.create_project(conn, "P")
+    proj.add_papers(conn, pid, [ids[0]])  # only first doc in project
+    conn.close()
+
+    app = FastAPI()
+    app.include_router(pr.router)
+    client = TestClient(app)
+
+    captured = {}
+
+    def fake_ask(question, top_k=6, filters=None, conn=None):
+        captured["filters"] = filters
+        return {"answer": "ans [1]", "citations": [], "hits": []}
+
+    class FakeHit:
+        def __init__(self, doc_id, title):
+            self.doc_id, self.title = doc_id, title
+
+    def fake_search(question, top_k=6, conn=None):
+        return [FakeHit(ids[0], "inproj"), FakeHit(ids[1], "outproj")]
+
+    with patch("app.rag.ask.ask", side_effect=fake_ask), \
+         patch("app.rag.retriever.search", side_effect=fake_search):
+        r = client.post(f"/projects/{pid}/ask", json={"question": "quantum?"})
+    assert r.status_code == 200
+    body = r.json()
+    # Scoped: filters restricted to project doc_ids.
+    assert captured["filters"] == {"doc_ids": [ids[0]]}
+    assert body["scoped"] is True
+    # Nudge surfaces the out-of-project doc only.
+    assert [n["doc_id"] for n in body["nudge"]] == [ids[1]]
+
+    with patch("app.rag.ask.ask", side_effect=fake_ask), \
+         patch("app.rag.retriever.search", side_effect=fake_search):
+        r2 = client.post(f"/projects/{pid}/ask", json={"question": "quantum?", "expand": True})
+    assert captured["filters"] is None  # expanded -> whole library
+    assert r2.json()["scoped"] is False

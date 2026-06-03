@@ -54,3 +54,17 @@ th { color: var(--muted); font-weight: 500; }
 
 .md { background: var(--panel); border: 1px solid var(--border); padding: 1rem; border-radius: 6px; white-space: pre-wrap; }
 #mindmap-svg { height: 480px; margin-top: 1rem; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; }
+
+/* Projects + matrix (Phase 11-13) */
+.layout-2col { display:grid; grid-template-columns: 240px 1fr; gap:1rem; }
+.proj-list { list-style:none; padding:0; }
+.proj-list li { padding:.25rem 0; }
+.muted { color:#8b93a7; font-size:.85em; }
+.chk { display:inline-flex; align-items:center; gap:.3rem; margin:.25rem .5rem .25rem 0; }
+.import-list { max-height:240px; overflow:auto; border:1px solid #2a2f3d; padding:.4rem; margin:.4rem 0; }
+.import-list label { display:block; }
+.nudge { margin-top:.6rem; }
+button.danger { background:#3a1f24; border-color:#5a2a32; }
+button.link { background:none; border:none; color:#7aa2ff; cursor:pointer; padding:.1rem .3rem; }
+table.matrix { border-collapse:collapse; width:100%; font-size:.82em; display:block; overflow:auto; }
+table.matrix th, table.matrix td { border:1px solid #2a2f3d; padding:.3rem .4rem; vertical-align:top; text-align:left; max-width:280px; }

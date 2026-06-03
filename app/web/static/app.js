@@ -105,3 +105,180 @@ document.getElementById("lib-form").addEventListener("submit", async (e) => {
 });
 
 document.querySelector("#lib-form").dispatchEvent(new Event("submit"));
+
+// ---------- Projects (Phase 11) + Matrix (Phase 12-13) ----------
+const PROJ = { current: null };
+
+async function getJSON(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`${r.status}: ${await r.text()}`);
+  return r.json();
+}
+async function delJSON(url) {
+  const r = await fetch(url, { method: "DELETE" });
+  if (!r.ok) throw new Error(`${r.status}: ${await r.text()}`);
+  return r.json();
+}
+
+async function loadProjects() {
+  const data = await getJSON("/projects");
+  const ul = document.getElementById("proj-list");
+  ul.innerHTML = (data.projects || []).map(p =>
+    `<li><a href="#" data-pid="${p.id}">${escapeHtml(p.name)}</a> <span class="muted">(${p.n_papers})</span></li>`
+  ).join("");
+  ul.querySelectorAll("a[data-pid]").forEach(a =>
+    a.addEventListener("click", (e) => { e.preventDefault(); openProject(Number(a.dataset.pid)); })
+  );
+}
+
+async function openProject(pid) {
+  PROJ.current = pid;
+  const d = await getJSON(`/projects/${pid}`);
+  document.getElementById("proj-detail").hidden = false;
+  document.getElementById("proj-title").textContent = d.name;
+  renderProjPapers(d.papers || []);
+  document.getElementById("proj-matrix-wrap").hidden = true;
+  document.getElementById("proj-answer").textContent = "";
+  document.getElementById("proj-citations").innerHTML = "";
+  document.getElementById("proj-nudge").innerHTML = "";
+  updateMatrixExportLinks();
+}
+
+function renderProjPapers(papers) {
+  const tb = document.querySelector("#proj-papers tbody");
+  tb.innerHTML = papers.map(p =>
+    `<tr><td><a href="/viewer?doc=${p.id}" target="_blank">${escapeHtml(p.title || "(untitled)")}</a></td>
+     <td>${p.year || ""}</td><td>${escapeHtml(p.authors || "")}</td>
+     <td><button data-rm="${p.id}" class="danger">x</button></td></tr>`
+  ).join("");
+  tb.querySelectorAll("button[data-rm]").forEach(b =>
+    b.addEventListener("click", async () => {
+      const res = await delJSON(`/projects/${PROJ.current}/papers/${b.dataset.rm}`);
+      renderProjPapers(res.papers || []);
+      loadProjects();
+    })
+  );
+}
+
+document.getElementById("proj-create-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const body = formToBody(e.target);
+  await postJSON("/projects", body);
+  e.target.reset();
+  loadProjects();
+});
+
+document.getElementById("proj-delete-btn").addEventListener("click", async () => {
+  if (!PROJ.current || !confirm("Hapus proyek ini? (paper tetap di korpus)")) return;
+  await delJSON(`/projects/${PROJ.current}`);
+  document.getElementById("proj-detail").hidden = true;
+  PROJ.current = null;
+  loadProjects();
+});
+
+document.getElementById("proj-import-toggle").addEventListener("click", async () => {
+  const panel = document.getElementById("proj-import-panel");
+  panel.hidden = !panel.hidden;
+  if (!panel.hidden) renderImportList("");
+});
+document.getElementById("proj-import-search").addEventListener("input", (e) => renderImportList(e.target.value));
+
+async function renderImportList(q) {
+  const data = await getJSON("/library?" + new URLSearchParams(q ? { q } : {}).toString());
+  const div = document.getElementById("proj-import-list");
+  div.innerHTML = (data.items || []).map(it =>
+    `<label class="chk"><input type="checkbox" value="${it.id}" /> ${escapeHtml(it.title || "(untitled)")} <span class="muted">${it.year || ""}</span></label>`
+  ).join("");
+}
+
+document.getElementById("proj-import-apply").addEventListener("click", async () => {
+  const ids = [...document.querySelectorAll("#proj-import-list input:checked")].map(c => Number(c.value));
+  if (!ids.length) return;
+  const res = await postJSON(`/projects/${PROJ.current}/papers`, { doc_ids: ids });
+  renderProjPapers(res.papers || []);
+  document.getElementById("proj-import-panel").hidden = true;
+  loadProjects();
+});
+
+document.getElementById("proj-upload-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const input = e.target.elements.file;
+  if (!input.files.length) return;
+  const fd = new FormData();
+  fd.append("file", input.files[0]);
+  const r = await fetch(`/projects/${PROJ.current}/upload`, { method: "POST", body: fd });
+  if (!r.ok) { alert("Gagal: " + await r.text()); return; }
+  const res = await r.json();
+  renderProjPapers(res.papers || []);
+  e.target.reset();
+  loadProjects();
+});
+
+document.getElementById("proj-ask-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const ans = document.getElementById("proj-answer");
+  const cits = document.getElementById("proj-citations");
+  const nudge = document.getElementById("proj-nudge");
+  ans.textContent = "Mencari dalam proyek...";
+  cits.innerHTML = ""; nudge.innerHTML = "";
+  try {
+    const res = await postJSON(`/projects/${PROJ.current}/ask`, {
+      question: e.target.elements.question.value,
+      expand: document.getElementById("proj-expand").checked,
+    });
+    ans.textContent = res.answer;
+    cits.innerHTML = citationLinks(res.citations || []);
+    if ((res.nudge || []).length) {
+      nudge.innerHTML = `<p class="muted">${res.nudge.length} paper lain di library mungkin relevan — tambahkan ke proyek?</p>` +
+        res.nudge.map(n => `<button class="link" data-add="${n.doc_id}">+ ${escapeHtml(n.title || "(untitled)")}</button>`).join(" ");
+      nudge.querySelectorAll("button[data-add]").forEach(b =>
+        b.addEventListener("click", async () => {
+          const r = await postJSON(`/projects/${PROJ.current}/papers`, { doc_ids: [Number(b.dataset.add)] });
+          renderProjPapers(r.papers || []); b.remove(); loadProjects();
+        })
+      );
+    }
+  } catch (err) { ans.textContent = "Error: " + err.message; }
+});
+
+// Matrix (wired in Phase 12-13)
+document.getElementById("proj-matrix-btn").addEventListener("click", async () => {
+  const wrap = document.getElementById("proj-matrix-wrap");
+  const out = document.getElementById("matrix-output");
+  wrap.hidden = false;
+  out.textContent = "Mengekstrak matriks (grounded)...";
+  try {
+    const view = document.getElementById("matrix-view").value;
+    const res = await postJSON(`/projects/${PROJ.current}/matrix`, { view });
+    renderMatrix(res);
+  } catch (err) { out.textContent = "Error: " + err.message; }
+  updateMatrixExportLinks();
+});
+document.getElementById("matrix-view").addEventListener("change", () => {
+  document.getElementById("proj-matrix-btn").click();
+});
+
+function updateMatrixExportLinks() {
+  if (!PROJ.current) return;
+  const view = document.getElementById("matrix-view").value;
+  document.getElementById("matrix-xlsx").href = `/projects/${PROJ.current}/matrix/export.xlsx?view=${view}`;
+  document.getElementById("matrix-csv").href = `/projects/${PROJ.current}/matrix/export.csv?view=${view}`;
+}
+
+function renderMatrix(res) {
+  const out = document.getElementById("matrix-output");
+  const rows = res.rows || [];
+  if (!rows.length) { out.textContent = "Tidak ada paper / hasil."; return; }
+  const cols = res.columns || Object.keys(rows[0].fields || {});
+  let html = `<div class="muted">Skema terdeteksi per paper; sel "tidak disebutkan" = gap eksplisit.</div>`;
+  html += "<table class='matrix'><thead><tr><th>Source</th><th>Tahun</th><th>Skema</th>" +
+    cols.map(c => `<th>${escapeHtml(c)}</th>`).join("") + "</tr></thead><tbody>";
+  for (const row of rows) {
+    html += `<tr><td>${escapeHtml(row.source || "")}</td><td>${row.year || ""}</td><td>${escapeHtml(row.schema || "")}</td>` +
+      cols.map(c => `<td>${escapeHtml(String((row.fields || {})[c] ?? ""))}</td>`).join("") + "</tr>";
+  }
+  html += "</tbody></table>";
+  out.innerHTML = html;
+}
+
+loadProjects();

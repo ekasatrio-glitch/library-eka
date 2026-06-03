@@ -27,6 +27,12 @@ class AddPapers(BaseModel):
     doc_ids: List[int] = Field(default_factory=list)
 
 
+class ScopedAsk(BaseModel):
+    question: str = Field(..., min_length=1)
+    top_k: int = 6
+    expand: bool = False  # True = search the whole library, not just the project
+
+
 @router.post("")
 def create(req: ProjectCreate) -> JSONResponse:
     conn = connect()
@@ -121,6 +127,42 @@ async def upload_pdf(project_id: int, file: UploadFile = File(...)) -> JSONRespo
             {"doc_id": doc_id, "ingested": processed, "reason": reason,
              "papers": proj.list_papers(conn, project_id)}
         )
+    finally:
+        conn.close()
+
+
+@router.post("/{project_id}/ask")
+def scoped_ask(project_id: int, req: ScopedAsk) -> JSONResponse:
+    """Project-scoped RAG. Default retrieves only from project papers; `expand`
+    widens to the whole library. Adds a discovery `nudge`: other library papers
+    that look relevant but aren't in the project (computed without polluting the
+    main answer)."""
+    from app.rag.ask import ask
+    from app.rag.retriever import search
+
+    conn = connect()
+    try:
+        if not proj.get_project(conn, project_id):
+            raise HTTPException(404, "project not found")
+        doc_ids = proj.project_doc_ids(conn, project_id)
+        scoped = bool(doc_ids) and not req.expand
+        filters = {"doc_ids": doc_ids} if scoped else None
+        try:
+            result = ask(req.question, top_k=req.top_k, filters=filters, conn=conn)
+        except RuntimeError as e:
+            raise HTTPException(503, str(e))
+
+        nudge: List[Dict[str, Any]] = []
+        if scoped:
+            in_proj = set(doc_ids)
+            seen: set = set()
+            for h in search(req.question, top_k=req.top_k, conn=conn):
+                if h.doc_id not in in_proj and h.doc_id not in seen:
+                    seen.add(h.doc_id)
+                    nudge.append({"doc_id": h.doc_id, "title": h.title})
+        result["nudge"] = nudge
+        result["scoped"] = scoped
+        return JSONResponse(result)
     finally:
         conn.close()
 
