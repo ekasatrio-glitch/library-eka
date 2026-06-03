@@ -6,6 +6,7 @@ import fitz
 
 from app.core.db import backfill_fts, init_db, sparse_search
 from app.ingest.pipeline import ingest_pdf
+from app.rag.retriever import hybrid_search, rrf_fuse
 
 
 def _mk(path: Path, text: str, pages: int = 2):
@@ -67,6 +68,49 @@ def test_delete_keeps_fts_synced():
         conn.execute("DELETE FROM chunks WHERE doc_id = 1")
         conn.commit()
         assert sparse_search(conn, "quantum", 10) == []
+        conn.close()
+
+
+def test_rrf_fuse_orders_by_combined_rank():
+    # id 1: dense#0 + sparse#1 (best combined); id 3: dense#2 + sparse#0.
+    fused = rrf_fuse([[1, 2, 3], [3, 1, 4]], top_n=4)
+    assert fused[0] == 1
+    assert fused[1] == 3
+    assert set(fused) == {1, 2, 3, 4}
+
+
+def test_hybrid_semantic_query():
+    with tempfile.TemporaryDirectory() as td:
+        conn = _seed(Path(td))
+        with patch("app.rag.retriever.embed_one", side_effect=lambda q: _embed_stub([q])[0]):
+            hits = hybrid_search("quantum entanglement", top_k=3, conn=conn)
+        assert hits and "quantum" in hits[0].text.lower()
+        conn.close()
+
+
+def test_hybrid_exact_term_rescued_by_sparse():
+    # Stub dense embedding is blind to "mitosis" (vector all-zero); FTS5 sparse
+    # path must surface the biology chunk and RRF must rank it first.
+    with tempfile.TemporaryDirectory() as td:
+        conn = _seed(Path(td))
+        with patch("app.rag.retriever.embed_one", side_effect=lambda q: _embed_stub([q])[0]):
+            hits = hybrid_search("mitosis", top_k=3, conn=conn)
+        assert hits, "no hybrid hits"
+        assert "mitosis" in hits[0].text.lower()
+        conn.close()
+
+
+def test_hybrid_respects_filters_both_paths():
+    with tempfile.TemporaryDirectory() as td:
+        conn = _seed(Path(td))
+        # Tag the biology doc with a year; filter it out.
+        conn.execute("UPDATE documents SET year = 2000 WHERE path LIKE '%biology.pdf'")
+        conn.execute("UPDATE documents SET year = 2020 WHERE path LIKE '%quantum.pdf'")
+        conn.commit()
+        with patch("app.rag.retriever.embed_one", side_effect=lambda q: _embed_stub([q])[0]):
+            hits = hybrid_search("mitosis", top_k=5, filters={"year_min": 2010}, conn=conn)
+        # mitosis lives only in the 2000 biology doc -> filtered out of both paths.
+        assert all("mitosis" not in h.text.lower() for h in hits)
         conn.close()
 
 
