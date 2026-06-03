@@ -141,7 +141,12 @@ keyword (FTS5). Halaman tiap chunk dilacak supaya sitasi bisa klik-ke-halaman.
 
 ## 6. Jalankan Aplikasi
 
-Cara termudah — skrip yang menyalakan **watcher + web** sekaligus:
+**Paling gampang (macOS):** double-click **`scripts/start.command`** di Finder.
+Otomatis: nyalakan Ollama (kalau mati) → watcher + web → buka browser.
+Berhenti: Ctrl-C di jendela Terminal yang muncul.
+> Pertama kali macOS bisa blokir ("unidentified developer"): klik-kanan file → **Open** → Open.
+
+**Atau** lewat terminal (watcher + web sekaligus):
 ```bash
 scripts/run.sh
 ```
