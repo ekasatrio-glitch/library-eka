@@ -17,13 +17,41 @@ from app.ingest.pipeline import file_hash, find_pdfs, ingest_pdf
 log = logging.getLogger("watcher")
 
 
+class _InFlight:
+    """Thread-safe set of resolved paths queued or being processed.
+
+    Collapses duplicate watchdog events (on_created + on_modified bursts) for
+    the same file while one copy is still pending.
+    """
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._keys: Set[str] = set()
+
+    def add(self, key: str) -> bool:
+        """Return True if newly added, False if already in flight."""
+        with self._lock:
+            if key in self._keys:
+                return False
+            self._keys.add(key)
+            return True
+
+    def discard(self, key: str) -> None:
+        with self._lock:
+            self._keys.discard(key)
+
+
 class _PdfHandler(FileSystemEventHandler):
-    def __init__(self, q: "queue.Queue[Path]"):
+    def __init__(self, q: "queue.Queue[Path]", inflight: _InFlight):
         self.q = q
+        self.inflight = inflight
 
     def _maybe_enqueue(self, raw_path: str):
         p = Path(raw_path)
-        if p.suffix.lower() == ".pdf":
+        if p.suffix.lower() != ".pdf":
+            return
+        key = str(p.resolve())
+        if self.inflight.add(key):
             self.q.put(p)
 
     def on_created(self, event: FileSystemEvent):
@@ -61,9 +89,13 @@ def _wait_stable(path: Path, settle_seconds: float = 2.0, max_wait: float = 60.0
     return False
 
 
-def _worker(q: "queue.Queue[Optional[Path]]", stop_event: threading.Event, db_path: Optional[str] = None):
+def _worker(
+    q: "queue.Queue[Optional[Path]]",
+    stop_event: threading.Event,
+    inflight: _InFlight,
+    db_path: Optional[str] = None,
+):
     conn = init_db(db_path)
-    seen_in_flight: Set[str] = set()
     try:
         while not stop_event.is_set():
             try:
@@ -71,13 +103,11 @@ def _worker(q: "queue.Queue[Optional[Path]]", stop_event: threading.Event, db_pa
             except queue.Empty:
                 continue
             if item is None:
+                q.task_done()
                 break
+            key = str(item.resolve())
             try:
                 p = item.resolve()
-                key = str(p)
-                if key in seen_in_flight:
-                    continue
-                seen_in_flight.add(key)
                 if not _wait_stable(p):
                     log.warning("not stable / missing: %s", p)
                     continue
@@ -86,20 +116,18 @@ def _worker(q: "queue.Queue[Optional[Path]]", stop_event: threading.Event, db_pa
             except Exception as e:
                 log.exception("worker error on %s: %s", item, e)
             finally:
-                try:
-                    seen_in_flight.discard(key)
-                except Exception:
-                    pass
+                inflight.discard(key)
                 q.task_done()
     finally:
         conn.close()
 
 
-def startup_scan(roots: Iterable[str | Path], q: "queue.Queue[Path]") -> int:
+def startup_scan(roots: Iterable[str | Path], q: "queue.Queue[Path]", inflight: _InFlight) -> int:
     count = 0
     for pdf in find_pdfs(roots):
-        q.put(pdf)
-        count += 1
+        if inflight.add(str(pdf.resolve())):
+            q.put(pdf)
+            count += 1
     return count
 
 
@@ -119,13 +147,14 @@ def run(roots: Optional[List[str]] = None, db_path: Optional[str] = None) -> int
 
     q: "queue.Queue[Path]" = queue.Queue()
     stop_event = threading.Event()
-    worker_t = threading.Thread(target=_worker, args=(q, stop_event, db_path), daemon=True)
+    inflight = _InFlight()
+    worker_t = threading.Thread(target=_worker, args=(q, stop_event, inflight, db_path), daemon=True)
     worker_t.start()
 
-    n = startup_scan(valid, q)
+    n = startup_scan(valid, q, inflight)
     log.info("startup scan enqueued %d files", n)
 
-    handler = _PdfHandler(q)
+    handler = _PdfHandler(q, inflight)
     observer = Observer()
     for f in valid:
         observer.schedule(handler, f, recursive=True)

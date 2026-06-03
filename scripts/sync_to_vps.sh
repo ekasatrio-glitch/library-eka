@@ -30,7 +30,9 @@ if [ ! -f "$DB_PATH" ]; then
   exit 1
 fi
 
-# Best-effort serialization with the ingestion worker.
+# Serialize concurrent runs of THIS script (the worker does not take this lock).
+# Snapshot consistency vs. the ingestion worker comes from VACUUM INTO below,
+# which reads a transactionally consistent view regardless of in-flight writes.
 exec 9>"$LOCK_FILE"
 if ! flock -n 9; then
   echo "[sync] another sync is running; exit." >&2

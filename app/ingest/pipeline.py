@@ -9,6 +9,7 @@ from app.core.db import (
     document_exists,
     upsert_document,
     insert_chunk,
+    delete_chunks,
     set_document_status,
 )
 from app.ingest.chunker import chunk_pages
@@ -69,6 +70,7 @@ def ingest_pdf(pdf_path: str | Path, conn=None) -> tuple[bool, str]:
             status="processing",
         )
 
+        delete_chunks(conn, doc_id)  # clear stale chunks on re-ingest (hash changed)
         chunks = chunk_pages(pages)
         if not chunks:
             set_document_status(conn, doc_id, "empty")

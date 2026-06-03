@@ -65,6 +65,42 @@ def test_pipeline_idempotent():
         conn.close()
 
 
+def test_reingest_modified_replaces_chunks():
+    """Editing a PDF (new hash) must replace old chunks, not accumulate them."""
+    with tempfile.TemporaryDirectory() as td:
+        pdf = Path(td) / "doc.pdf"
+        make_pdf(pdf, n_pages=2)
+        db = str(Path(td) / "t.db")
+        conn = init_db(db)
+
+        def fake_embed(texts, model=None, base_url=None):
+            return [[0.001 * i] * 768 for i, _ in enumerate(texts, 1)]
+
+        with patch("app.ingest.pipeline.embed_texts", side_effect=fake_embed):
+            ok, msg = ingest_pdf(pdf, conn=conn)
+            assert ok, msg
+            n1 = conn.execute("SELECT COUNT(*) FROM chunks").fetchone()[0]
+
+            # Rewrite file with different content -> different hash -> re-ingest.
+            make_pdf(pdf, n_pages=3, words_per_page=500)
+            ok2, msg2 = ingest_pdf(pdf, conn=conn)
+            assert ok2, msg2
+
+        assert conn.execute("SELECT COUNT(*) FROM documents").fetchone()[0] == 1
+        # Only one doc's worth of chunks; no leftovers from the first version.
+        doc_ids = {r[0] for r in conn.execute("SELECT DISTINCT doc_id FROM chunks").fetchall()}
+        assert len(doc_ids) == 1
+        n_chunks = conn.execute("SELECT COUNT(*) FROM chunks").fetchone()[0]
+        n_vec = conn.execute("SELECT COUNT(*) FROM vec_chunks").fetchone()[0]
+        assert n_vec == n_chunks, "vec rows must match chunks after re-ingest"
+        # First version had n1 chunks; after replace, no stale duplication carried over.
+        n_first_doc_chunks = conn.execute(
+            "SELECT COUNT(*) FROM chunks WHERE doc_id = (SELECT id FROM documents)"
+        ).fetchone()[0]
+        assert n_first_doc_chunks == n_chunks
+        conn.close()
+
+
 def test_find_pdfs():
     with tempfile.TemporaryDirectory() as td:
         root = Path(td)

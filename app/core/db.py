@@ -123,6 +123,16 @@ def insert_chunk(
     return chunk_id
 
 
+def delete_chunks(conn: sqlite3.Connection, doc_id: int) -> None:
+    """Remove all chunks + vec rows for a document (used before re-ingest)."""
+    conn.execute(
+        "DELETE FROM vec_chunks WHERE chunk_id IN (SELECT id FROM chunks WHERE doc_id = ?)",
+        (doc_id,),
+    )
+    conn.execute("DELETE FROM chunks WHERE doc_id = ?", (doc_id,))
+    conn.commit()
+
+
 def set_document_status(conn: sqlite3.Connection, doc_id: int, status: str) -> None:
     conn.execute("UPDATE documents SET status = ? WHERE id = ?", (status, doc_id))
     conn.commit()

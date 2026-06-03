@@ -7,7 +7,7 @@ from unittest.mock import patch
 import fitz
 
 from app.core.db import init_db
-from app.ingest.watcher import _wait_stable, _worker, startup_scan
+from app.ingest.watcher import _InFlight, _wait_stable, _worker, startup_scan
 
 
 def make_pdf(path: Path, n_pages: int = 1):
@@ -17,6 +17,14 @@ def make_pdf(path: Path, n_pages: int = 1):
         page.insert_text((72, 72), f"content page {i+1} " + "lorem " * 200, fontsize=10)
     doc.save(str(path))
     doc.close()
+
+
+def test_inflight_dedup():
+    f = _InFlight()
+    assert f.add("/x/a.pdf") is True
+    assert f.add("/x/a.pdf") is False  # already in flight -> not re-enqueued
+    f.discard("/x/a.pdf")
+    assert f.add("/x/a.pdf") is True   # re-addable after completion
 
 
 def test_wait_stable_quick():
@@ -32,7 +40,7 @@ def test_startup_scan_enqueues():
         make_pdf(root / "a.pdf")
         make_pdf(root / "b.pdf")
         q: "queue.Queue[Path]" = queue.Queue()
-        n = startup_scan([root], q)
+        n = startup_scan([root], q, _InFlight())
         assert n == 2
         assert q.qsize() == 2
 
@@ -52,7 +60,7 @@ def test_worker_processes_queue():
 
         with patch("app.ingest.pipeline.embed_texts", side_effect=fake_embed), \
              patch("app.ingest.watcher._wait_stable", return_value=True):
-            t = threading.Thread(target=_worker, args=(q, stop, db), daemon=True)
+            t = threading.Thread(target=_worker, args=(q, stop, _InFlight(), db), daemon=True)
             t.start()
             q.put(pdf)
             q.join()

@@ -23,5 +23,10 @@ WATCH_FOLDERS = [
 
 def llm_config() -> tuple[str, str, str]:
     if LLM_PROVIDER == "jatevo":
+        if not JATEVO_BASE_URL:
+            raise RuntimeError(
+                "LLM_PROVIDER=jatevo but JATEVO_BASE_URL is empty — set it in .env "
+                "(empty base_url silently falls back to api.openai.com)"
+            )
         return JATEVO_API_KEY, JATEVO_BASE_URL, os.getenv("JATEVO_MODEL", "jatevo-default")
     return DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
