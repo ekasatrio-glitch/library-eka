@@ -216,3 +216,25 @@ def test_reembed_migrates_and_is_idempotent():
             # Force re-embeds.
             reembed_mod.reembed("fakemodel", dim=8, batch=2, db_path=db, force=True)
             assert calls["n"] > first_calls
+
+
+def test_reembed_on_legacy_db_without_meta():
+    """DB predating the meta table must not crash reembed (init_db backfills schema)."""
+    from app.ingest import reembed as reembed_mod
+
+    def fake_embed(texts, model=None, base_url=None):
+        return [[0.5] * 8 for _ in texts]
+
+    with tempfile.TemporaryDirectory() as td:
+        conn = _seed(Path(td))
+        db = conn.execute("PRAGMA database_list").fetchone()[2]
+        conn.execute("DROP TABLE meta")  # simulate a pre-meta DB
+        conn.commit()
+        conn.close()
+
+        with patch.object(reembed_mod, "embed_texts", side_effect=fake_embed):
+            rc = reembed_mod.reembed("fakemodel", dim=8, batch=2, db_path=db)
+        assert rc == 0
+        c = init_db(db)
+        assert c.execute("SELECT COUNT(*) FROM vec_chunks").fetchone()[0] > 0
+        c.close()

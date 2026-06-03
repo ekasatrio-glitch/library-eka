@@ -22,8 +22,8 @@ import sys
 from typing import Optional
 
 from app.core.db import (
-    connect,
     get_meta,
+    init_db,
     serialize_vec,
     set_meta,
 )
@@ -48,7 +48,7 @@ def reembed(
     base_url: Optional[str] = None,
     force: bool = False,
 ) -> int:
-    conn = connect(db_path)
+    conn = init_db(db_path)  # ensure schema (meta table, FTS) exists, even on legacy DBs
     try:
         n_chunks = conn.execute("SELECT COUNT(*) FROM chunks").fetchone()[0]
         n_vec = conn.execute("SELECT COUNT(*) FROM vec_chunks").fetchone()[0]
