@@ -1,3 +1,4 @@
+import re
 import sqlite3
 import struct
 from pathlib import Path
@@ -35,6 +36,26 @@ CREATE TABLE IF NOT EXISTS chunks (
 );
 
 CREATE INDEX IF NOT EXISTS idx_chunks_doc ON chunks(doc_id);
+
+-- Sparse keyword index (BM25). External-content FTS5 over chunks.text:
+-- the index stores tokens only; text stays in `chunks` (rowid == chunks.id).
+CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(
+    text,
+    content='chunks',
+    content_rowid='id'
+);
+
+-- Keep FTS5 in sync with chunks (insert/delete/update).
+CREATE TRIGGER IF NOT EXISTS chunks_ai AFTER INSERT ON chunks BEGIN
+    INSERT INTO chunks_fts(rowid, text) VALUES (new.id, new.text);
+END;
+CREATE TRIGGER IF NOT EXISTS chunks_ad AFTER DELETE ON chunks BEGIN
+    INSERT INTO chunks_fts(chunks_fts, rowid, text) VALUES ('delete', old.id, old.text);
+END;
+CREATE TRIGGER IF NOT EXISTS chunks_au AFTER UPDATE ON chunks BEGIN
+    INSERT INTO chunks_fts(chunks_fts, rowid, text) VALUES ('delete', old.id, old.text);
+    INSERT INTO chunks_fts(rowid, text) VALUES (new.id, new.text);
+END;
 """
 
 
@@ -57,7 +78,53 @@ def init_db(path: Optional[str] = None) -> sqlite3.Connection:
         f"chunk_id INTEGER PRIMARY KEY, embedding FLOAT[{EMBED_DIM}])"
     )
     conn.commit()
+    backfill_fts(conn)
     return conn
+
+
+def backfill_fts(conn: sqlite3.Connection) -> int:
+    """Rebuild FTS5 from existing chunks if out of sync (e.g. DB predates FTS5).
+
+    Triggers keep it synced going forward; this only catches pre-existing rows.
+    Note: COUNT(*) on an external-content FTS5 table reads the *content* table, so
+    it can't reveal drift. The `_docsize` shadow table holds the true indexed count.
+    Returns the number of chunks after the (possible) rebuild.
+    """
+    n_chunks = conn.execute("SELECT COUNT(*) FROM chunks").fetchone()[0]
+    n_indexed = conn.execute("SELECT COUNT(*) FROM chunks_fts_docsize").fetchone()[0]
+    if n_chunks != n_indexed:
+        conn.execute("INSERT INTO chunks_fts(chunks_fts) VALUES ('rebuild')")
+        conn.commit()
+    return n_chunks
+
+
+def _fts_match_query(query: str) -> str:
+    """Build a safe FTS5 MATCH string: OR of quoted tokens (no operator injection)."""
+    tokens = re.findall(r"\w+", query, flags=re.UNICODE)
+    return " OR ".join(f'"{t}"' for t in tokens)
+
+
+def sparse_search(
+    conn: sqlite3.Connection, query: str, n: int, where: str = "", params: Optional[list] = None
+) -> list:
+    """Keyword/BM25 search via FTS5. Returns [(chunk_id, score)] best-first (lower bm25 = better).
+
+    `where` is an optional ' AND ...' clause over aliased `d` (documents); `params` its values.
+    """
+    match = _fts_match_query(query)
+    if not match:
+        return []
+    sql = f"""
+        SELECT c.id AS chunk_id, bm25(chunks_fts) AS score
+        FROM chunks_fts
+        JOIN chunks c ON c.id = chunks_fts.rowid
+        JOIN documents d ON d.id = c.doc_id
+        WHERE chunks_fts MATCH ?{where}
+        ORDER BY score ASC
+        LIMIT ?
+    """
+    rows = conn.execute(sql, (match, *(params or []), n)).fetchall()
+    return [(r[0], float(r[1])) for r in rows]
 
 
 def serialize_vec(vec: Iterable[float]) -> bytes:
