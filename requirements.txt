@@ -9,3 +9,5 @@ jinja2
 httpx
 pydantic
 pytest
+flashrank
+# Optional (RERANKER=bge): pip install sentence-transformers

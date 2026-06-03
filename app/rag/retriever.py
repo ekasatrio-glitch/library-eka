@@ -147,9 +147,15 @@ def search(
     conn=None,
     over_fetch: int = 8,
 ) -> List[Hit]:
-    """Default retrieval: hybrid (dense + sparse, RRF-fused).
+    """Default retrieval: hybrid (dense + sparse, RRF-fused) + cross-encoder rerank.
 
-    Kept name/signature for callers; `over_fetch` sizes the per-path candidate pool.
+    Hybrid fuses a candidate pool down to RERANK_POOL; the reranker then sharpens
+    that small set to the final top_k. `over_fetch` sizes the per-path pool.
     """
+    from app.core.config import RERANK_POOL
+    from app.rag.reranker import rerank
+
     pool = max(top_k * over_fetch, 20)
-    return hybrid_search(question, top_k=top_k, filters=filters, conn=conn, pool=pool)
+    rerank_pool = max(top_k, RERANK_POOL)
+    candidates = hybrid_search(question, top_k=rerank_pool, filters=filters, conn=conn, pool=pool)
+    return rerank(question, candidates, top_k=top_k)

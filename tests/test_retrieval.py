@@ -1,11 +1,14 @@
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import fitz
+import pytest
 
 from app.core.db import backfill_fts, init_db, sparse_search
 from app.ingest.pipeline import ingest_pdf
+from app.rag import reranker
 from app.rag.retriever import hybrid_search, rrf_fuse
 
 
@@ -132,3 +135,42 @@ def test_backfill_rebuilds_when_out_of_sync():
         assert conn.execute("SELECT COUNT(*) FROM chunks_fts_docsize").fetchone()[0] == nc
         assert sparse_search(conn, "quantum", 10), "backfill did not restore index"
         conn.close()
+
+
+def _hit(text):
+    return SimpleNamespace(text=text)
+
+
+def test_rerank_none_is_passthrough():
+    hits = [_hit("a"), _hit("b"), _hit("c")]
+    out = reranker.rerank("q", hits, top_k=2, backend="none")
+    assert [h.text for h in out] == ["a", "b"]
+
+
+def test_rerank_reorders_and_truncates():
+    hits = [_hit("a"), _hit("b"), _hit("c")]
+    # Fake backend ranks index 2, then 0, then 1.
+    with patch.object(reranker, "_rerank_flashrank", return_value=[2, 0, 1]):
+        out = reranker.rerank("q", hits, top_k=2, backend="flashrank")
+    assert [h.text for h in out] == ["c", "a"]
+
+
+def test_rerank_falls_back_on_error():
+    hits = [_hit("a"), _hit("b"), _hit("c")]
+    with patch.object(reranker, "_rerank_flashrank", side_effect=RuntimeError("no model")):
+        out = reranker.rerank("q", hits, top_k=2, backend="flashrank")
+    assert [h.text for h in out] == ["a", "b"]  # fusion order preserved
+
+
+def test_flashrank_live_smoke():
+    pytest.importorskip("flashrank")
+    hits = [
+        _hit("The cat sat on the mat."),
+        _hit("Quantum entanglement links distant particles."),
+        _hit("Photosynthesis converts light to energy."),
+    ]
+    try:
+        out = reranker.rerank("quantum physics entanglement", hits, top_k=1, backend="flashrank")
+    except Exception as e:  # model download blocked in CI/offline
+        pytest.skip(f"flashrank model unavailable: {e}")
+    assert "quantum" in out[0].text.lower()

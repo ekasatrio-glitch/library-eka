@@ -20,6 +20,11 @@ WATCH_FOLDERS = [
     p.strip() for p in os.getenv("WATCH_FOLDERS", "").split(",") if p.strip()
 ]
 
+# Reranker for final precision: flashrank (fast, ONNX) | bge (bge-reranker-v2-m3) | none
+RERANKER = os.getenv("RERANKER", "flashrank").lower()
+BGE_RERANK_MODEL = os.getenv("BGE_RERANK_MODEL", "BAAI/bge-reranker-v2-m3")
+RERANK_POOL = int(os.getenv("RERANK_POOL", "40"))  # candidates fed to the reranker
+
 
 def llm_config() -> tuple[str, str, str]:
     if LLM_PROVIDER == "jatevo":
