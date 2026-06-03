@@ -37,6 +37,13 @@ CREATE TABLE IF NOT EXISTS chunks (
 
 CREATE INDEX IF NOT EXISTS idx_chunks_doc ON chunks(doc_id);
 
+-- Small key/value store for migration bookkeeping (e.g. which embed model the
+-- current vec index was built with). Drives idempotent re-embed.
+CREATE TABLE IF NOT EXISTS meta (
+    key   TEXT PRIMARY KEY,
+    value TEXT
+);
+
 -- Sparse keyword index (BM25). External-content FTS5 over chunks.text:
 -- the index stores tokens only; text stays in `chunks` (rowid == chunks.id).
 CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(
@@ -125,6 +132,20 @@ def sparse_search(
     """
     rows = conn.execute(sql, (match, *(params or []), n)).fetchall()
     return [(r[0], float(r[1])) for r in rows]
+
+
+def get_meta(conn: sqlite3.Connection, key: str) -> Optional[str]:
+    row = conn.execute("SELECT value FROM meta WHERE key = ?", (key,)).fetchone()
+    return row[0] if row else None
+
+
+def set_meta(conn: sqlite3.Connection, key: str, value: str) -> None:
+    conn.execute(
+        "INSERT INTO meta(key, value) VALUES (?, ?) "
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        (key, str(value)),
+    )
+    conn.commit()
 
 
 def serialize_vec(vec: Iterable[float]) -> bytes:

@@ -65,6 +65,28 @@ Stops/starts via `launchctl unload|load -w ~/Library/LaunchAgents/com.eka.librar
 | GET    | `/library`       | Indexed docs + folder/year/author filters    |
 | GET    | `/pdf/{id}`      | Stream the source PDF                        |
 
+### Retrieval (hybrid + rerank)
+
+`app.rag.retriever.search()` runs **hybrid retrieval**: dense (sqlite-vec KNN) and
+sparse (SQLite **FTS5 / BM25**) candidates fused with **Reciprocal Rank Fusion**
+(RRF, k=60), then sharpened by a cross-encoder **reranker** over the small fused
+pool. Metadata filters (year/folder/author/doc) apply to both paths.
+
+Reranker is selected via `.env`:
+
+| `RERANKER` | Backend                | Notes                                  |
+|------------|------------------------|----------------------------------------|
+| `flashrank`| tiny ONNX cross-encoder| default, ms-level on CPU               |
+| `bge`      | `bge-reranker-v2-m3`   | multilingual ID/EN, higher accuracy; needs `pip install sentence-transformers` |
+| `none`     | passthrough            | keep RRF order                         |
+
+If the configured reranker's dependency is missing, retrieval falls back to RRF
+order (logged) — it never hard-fails. `RERANK_POOL` (default 40) sizes the
+candidate set fed to the reranker.
+
+FTS5 stays in sync with `chunks` via triggers; `init_db()` backfills the index
+for pre-existing rows (drift detected via the `_docsize` shadow table).
+
 ### Tests
 
 ```bash
@@ -127,3 +149,28 @@ The script makes a consistent snapshot (`VACUUM INTO`) under a file lock, then `
    - Use `app.rag.ask.ask()` directly for end-to-end RAG.
 
 4. Never rsync while the DB is being written. The provided script uses `VACUUM INTO` + flock; the worker should call `sync_to_vps.sh` only when its queue is idle.
+
+### Migrasi embedding bge-m3 (Phase 4.4, opsional)
+
+`bge-m3` lebih akurat + multilingual (ID/EN), tapi **memaksa re-embed seluruh
+korpus** (dimensi 768 → 1024). Teks (`documents`, `chunks`) tetap; hanya
+`vec_chunks` dibangun ulang. Skrip migrasi idempotent (mencatat model/dim di
+tabel `meta`):
+
+```bash
+ollama pull bge-m3
+python -m app.ingest.reembed --model bge-m3 --dim 1024   # tambah --force utk paksa
+```
+
+Lalu set di `.env` (Mac **dan** VPS):
+
+```
+EMBED_MODEL=bge-m3
+EMBED_DIM=1024
+```
+
+⚠️ **Konsisten Mac ↔ VPS wajib.** Query di-embed dengan model yang sama dengan
+indeks. Setelah migrasi, DB hasil sync berisi vektor 1024-d, jadi **VPS harus
+menjalankan `ollama pull bge-m3`** dan memakai `EMBED_MODEL=bge-m3`/`EMBED_DIM=1024`.
+Jika VPS terlalu kecil untuk bge-m3, **jangan** migrasi — tetap di `nomic-embed-text`
+(768) agar dimensi cocok. Re-sync DB setelah re-embed selesai.
