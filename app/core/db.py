@@ -74,6 +74,19 @@ CREATE TABLE IF NOT EXISTS project_codebook (
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
 );
 
+-- Persisted synthesis matrix: one row per (project, paper). `data` is the JSON
+-- extraction (schema, fields, per-field source refs). Export/views read this.
+CREATE TABLE IF NOT EXISTS project_matrix (
+    project_id INTEGER NOT NULL,
+    doc_id INTEGER NOT NULL,
+    schema TEXT NOT NULL,
+    data TEXT NOT NULL,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (project_id, doc_id),
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (doc_id) REFERENCES documents(id) ON DELETE CASCADE
+);
+
 -- Sparse keyword index (BM25). External-content FTS5 over chunks.text:
 -- the index stores tokens only; text stays in `chunks` (rowid == chunks.id).
 CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(

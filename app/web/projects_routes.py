@@ -167,6 +167,46 @@ def scoped_ask(project_id: int, req: ScopedAsk) -> JSONResponse:
         conn.close()
 
 
+class MatrixRequest(BaseModel):
+    view: str = "matrix"  # matrix | linimasa | tema
+    overrides: Dict[int, str] = Field(default_factory=dict)  # doc_id -> forced schema
+
+
+@router.post("/{project_id}/matrix")
+def post_matrix(project_id: int, req: MatrixRequest) -> JSONResponse:
+    """Build (extract + persist) the synthesis matrix for the project, grounded."""
+    from app.rag.generator import chat
+    from app.rag.matrix import build_matrix, shape_view
+    from app.rag.retriever import search
+
+    conn = connect()
+    try:
+        if not proj.get_project(conn, project_id):
+            raise HTTPException(404, "project not found")
+        try:
+            rows = build_matrix(conn, project_id, chat_fn=chat, search_fn=search,
+                                overrides={int(k): v for k, v in req.overrides.items()})
+        except RuntimeError as e:  # missing LLM key etc.
+            raise HTTPException(503, str(e))
+        return JSONResponse(shape_view(rows, req.view))
+    finally:
+        conn.close()
+
+
+@router.get("/{project_id}/matrix")
+def get_matrix(project_id: int, view: str = "matrix") -> JSONResponse:
+    """Return the persisted matrix (no re-extraction) in the requested view."""
+    from app.rag.matrix import load_matrix, shape_view
+
+    conn = connect()
+    try:
+        if not proj.get_project(conn, project_id):
+            raise HTTPException(404, "project not found")
+        return JSONResponse(shape_view(load_matrix(conn, project_id), view))
+    finally:
+        conn.close()
+
+
 @router.delete("/{project_id}/papers/{doc_id}")
 def remove_paper(project_id: int, doc_id: int) -> JSONResponse:
     conn = connect()
