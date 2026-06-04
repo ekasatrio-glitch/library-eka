@@ -3,11 +3,10 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from app.core import config
-
 import fitz
 import pytest
 
+from app.core import config
 from app.core.db import backfill_fts, init_db, sparse_search
 from app.ingest.pipeline import ingest_pdf
 from app.rag import reranker
