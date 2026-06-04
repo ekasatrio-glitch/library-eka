@@ -7,7 +7,7 @@ Personal local RAG for scientific corpus. Permanent + private library, precise c
 - Backend: Python + FastAPI
 - PDF extraction: PyMuPDF (fitz)
 - Storage: SQLite + sqlite-vec (registry + metadata + vectors in one file)
-- Embedding: Ollama `nomic-embed-text` (768-d)
+- Embedding: Ollama `bge-m3` (1024-d) by default; `nomic-embed-text` (768-d) supported
 - Generation: DeepSeek API (OpenAI-compatible); Jatevo fallback
 - Auto-ingest: watchdog folder watcher (debounce + queue + startup scan)
 - Web: FastAPI + PDF.js viewer + chat UI

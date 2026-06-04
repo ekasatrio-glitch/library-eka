@@ -69,7 +69,7 @@ Semantic title extraction (LLM + optional Crossref, no regex). Registry-safe: fi
 
 ## Invariants
 
-- Embed dimension must match between index and query — and between Mac and VPS (`EMBED_MODEL`/`EMBED_DIM` consistent on both; default nomic-embed-text/768). Mismatch breaks vector search.
+- Embed dimension must match between index and query — and between Mac and VPS (`EMBED_MODEL`/`EMBED_DIM` consistent on both; default **bge-m3 / 1024**, alt nomic-embed-text / 768). Mismatch breaks vector search. After changing the model, rebuild vectors with `python -m app.ingest.reembed --model <m> --dim <d>` (vec_chunks only) — an existing DB keeps its old `FLOAT[dim]` table until then.
 - Never rsync the live DB; only via `sync_to_vps.sh` (consistent snapshot under flock), and only when the ingest queue is idle.
 - Chunk page provenance (`page_start/page_end`) must stay accurate — citations depend on it.
 - Migrations (`reembed`, `reingest`) are idempotent, tracked in the `meta` table.
