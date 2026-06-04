@@ -127,3 +127,17 @@ table.matrix th{background:var(--brand-subtle);font-weight:600}
   .eg{grid-template-columns:1fr}
   .splash-title{font-size:26px}
 }
+
+/* draft + mindmap views */
+.df-form{max-width:760px;margin:0 auto 16px;width:100%}
+.df-form textarea{width:100%;resize:vertical;border:1px solid var(--border);border-radius:14px;padding:11px 15px;font-size:14px;background:var(--bg);outline:none}
+.df-form textarea:focus{border-color:var(--brand);box-shadow:0 0 0 4px rgba(14,165,233,.12)}
+.df-row{display:flex;gap:10px;align-items:center;margin-top:10px}
+.df-row select,.df-row input{border:1px solid var(--border);border-radius:10px;padding:8px 12px;font-size:14px;background:#fff}
+.df-btn{background:var(--brand);color:#fff;border:none;border-radius:12px;padding:10px 20px;cursor:pointer;font-weight:600}
+.df-btn:hover{background:var(--brand-hover)}
+#df-paragraph .ai,#df-paragraph{margin-bottom:14px}
+.ref-title{font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);margin:8px 0 6px}
+.md{white-space:pre-wrap;font-family:'Fira Code',monospace;font-size:12px;color:var(--text2);background:#F8FAFC;border:1px solid var(--border);border-radius:10px;padding:12px;max-height:200px;overflow:auto;margin-bottom:12px}
+.markmap-wrap{height:75vh;border:1px solid var(--border);border-radius:12px;background:#fff}
+.markmap-wrap svg{width:100%;height:100%}
