@@ -6,21 +6,29 @@
 import { escapeHtml } from "./api.js";
 import { renderAnswerHtml } from "./citations.js";
 
-const DEFAULT_EXAMPLES = [
-  "Apa temuan utama lintas paper tentang topik X?",
-  "Bandingkan metode di dua studi terbaru.",
-  "Ringkas bukti untuk klaim Y dengan sitasi.",
-  "Apa keterbatasan yang disebut penulis?",
+// Home (global chat) empty state: feature cards that link to the app surfaces.
+// Project chat passes examples:[] and keeps the (chip-based) example layout.
+const HOME_CARDS = [
+  { go: "chat", icon: "💬", title: "Tanya korpus", desc: "Jawaban presisi dengan sitasi klik-ke-halaman" },
+  { go: "draft", icon: "📝", title: "Draft akademik", desc: "Paragraf Vancouver/APA lengkap dengan referensi" },
+  { go: "mindmap", icon: "🗺️", title: "Mindmap", desc: "Peta topik bercabang dari korpus" },
+  { go: "projects", icon: "📁", title: "Proyek", desc: "Kelompokkan paper jadi koleksi terscope" },
 ];
 
 export function mountChat(container, opts) {
-  const examples = opts.examples || DEFAULT_EXAMPLES;
+  // opts.examples undefined → global home (feature cards); [] or list → example chips.
+  const isHome = opts.examples === undefined;
+  const examples = opts.examples || [];
+  const egHtml = isHome
+    ? `<div class="eg cards">${HOME_CARDS.map(c =>
+        `<button class="fcard" type="button" data-go="${c.go}"><span class="fc-ic">${c.icon}</span><b>${escapeHtml(c.title)}</b><small>${escapeHtml(c.desc)}</small></button>`).join("")}</div>`
+    : `<div class="eg">${examples.map(e => `<button class="ecard" type="button">${escapeHtml(e)}</button>`).join("")}</div>`;
   container.innerHTML = `
     <div class="scroll"><div class="inner" id="thread">
       <div class="empty" id="empty">
         <h1>library-eka</h1>
         <p>Tanya apa saja ke korpusmu. Jawaban presisi dengan sitasi klik-ke-halaman.</p>
-        <div class="eg">${examples.map(e => `<button class="ecard" type="button">${escapeHtml(e)}</button>`).join("")}</div>
+        ${egHtml}
       </div>
     </div></div>
     <div class="input"><div class="input-in">
@@ -94,4 +102,11 @@ export function mountChat(container, opts) {
   });
   container.querySelectorAll(".ecard").forEach(c =>
     c.addEventListener("click", () => { ta.value = c.textContent; submit(); }));
+  container.querySelectorAll(".fcard").forEach(c =>
+    c.addEventListener("click", () => {
+      const go = c.dataset.go;
+      if (go === "chat") { ta.focus(); return; }
+      const nav = document.getElementById("nav-" + go);
+      if (nav) nav.click();
+    }));
 }

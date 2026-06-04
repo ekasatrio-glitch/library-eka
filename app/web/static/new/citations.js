@@ -27,7 +27,7 @@ export function sourcesBlock(citations) {
     return `<details class="cites"><summary>📎 Sumber (${citations.length})</summary>` +
       `<ul class="reflist">${cited.map(citeLink).join("")}</ul></details>`;
   }
-  return `<details class="cites" open><summary>📎 Sumber dikutip (${cited.length})</summary>` +
+  return `<details class="cites"><summary>📎 Sumber dikutip (${cited.length})</summary>` +
     `<ul class="reflist">${cited.map(citeLink).join("")}</ul></details>` +
     `<details class="cites uncited"><summary>Diambil, tidak dikutip (${uncited.length})</summary>` +
     `<ul class="reflist">${uncited.map(citeLink).join("")}</ul></details>`;
