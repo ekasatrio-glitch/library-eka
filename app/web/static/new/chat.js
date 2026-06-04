@@ -68,7 +68,7 @@ export function mountChat(container, opts) {
     const pending = bubbleAI("…");
     try {
       const res = await opts.endpoint(q);
-      pending.innerHTML = renderAnswerHtml(res.answer, res.citations) + nudgeHtml(res.nudge);
+      pending.innerHTML = renderAnswerHtml(res.answer, res.citations || []) + nudgeHtml(res.nudge);
       pending.querySelectorAll("button[data-add]").forEach(b =>
         b.addEventListener("click", () => { opts.onAddPaper && opts.onAddPaper(Number(b.dataset.add)); b.remove(); }));
       messages.push({ q, a: res.answer, citations: res.citations || [] });
