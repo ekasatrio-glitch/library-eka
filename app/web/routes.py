@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
@@ -182,14 +182,20 @@ def post_retitle(req: RetitleRequest) -> JSONResponse:
 
 @router.get("/", response_class=HTMLResponse)
 def index(request: Request):
+    # Grid UI is the default; legacy 5-tab UI moved to /tools.
+    return templates.TemplateResponse(request, "new.html", {})
+
+
+@router.get("/tools", response_class=HTMLResponse)
+def tools(request: Request):
     return templates.TemplateResponse(request, "index.html", {})
+
+
+@router.get("/new")
+def new_redirect():
+    return RedirectResponse("/")
 
 
 @router.get("/viewer", response_class=HTMLResponse)
 def viewer(request: Request):
     return templates.TemplateResponse(request, "viewer.html", {})
-
-
-@router.get("/new", response_class=HTMLResponse)
-def new_ui(request: Request):
-    return templates.TemplateResponse(request, "new.html", {})
