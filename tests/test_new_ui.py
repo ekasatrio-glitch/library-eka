@@ -35,3 +35,13 @@ def test_loads_main_module():
 def test_old_index_untouched():
     client = TestClient(create_app())
     assert client.get("/").status_code == 200  # legacy UI still served
+
+
+def test_draft_mindmap_shell_present():
+    html = _html()
+    for el in (
+        'id="nav-draft"', 'id="nav-mindmap"',
+        'id="view-draft"', 'id="view-mindmap"',
+        'markmap-autoloader',
+    ):
+        assert el in html, f"missing {el}"
