@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
 
-from app.rag.citation import build_citations, format_context
+from app.rag.citation import build_citations, extract_cited_ns, format_context, mark_cited
 from app.rag.generator import chat
 from app.rag.retriever import Hit, search
 
@@ -55,6 +55,8 @@ def draft_paragraph(
         f"TOPIK: {topic}\n\nKONTEKS:\n{ctx}\n\nTulis satu paragraf padat dengan sitasi sesuai aturan."
     )
     paragraph = chat(sys, user, temperature=0.25, max_tokens=900)
+    if style == "vancouver":
+        mark_cited(citations, extract_cited_ns(paragraph, style="paren"))
     refs = [_format_reference(i + 1, h, style) for i, h in enumerate(hits)]
     return {
         "paragraph": paragraph,
