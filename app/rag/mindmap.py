@@ -46,13 +46,15 @@ def build_mindmap(
     breadth: int = 4,
     top_k: int = 6,
     conn=None,
+    doc_ids: Optional[List[int]] = None,
 ) -> Dict[str, Any]:
     subs = _expand_subtopics(topic, breadth)
+    filters = {"doc_ids": list(doc_ids)} if doc_ids else None
 
     all_hits: List[Hit] = []
     seen: set[int] = set()
     for q in [topic, *subs]:
-        for h in search(q, top_k=top_k, conn=conn):
+        for h in search(q, top_k=top_k, filters=filters, conn=conn):
             if h.chunk_id in seen:
                 continue
             seen.add(h.chunk_id)
