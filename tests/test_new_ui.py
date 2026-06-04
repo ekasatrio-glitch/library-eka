@@ -55,3 +55,9 @@ def test_new_redirects_to_root():
     r = client.get("/new", follow_redirects=False)
     assert r.status_code in (302, 307, 308)
     assert r.headers["location"] == "/"
+
+
+def test_mindmap_side_present():
+    html = _html()
+    for el in ('id="mindmap-side"', 'id="mindmap-recent"'):
+        assert el in html, f"missing {el}"
