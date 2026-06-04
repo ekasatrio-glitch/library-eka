@@ -437,3 +437,43 @@ document.getElementById("retitle-btn").addEventListener("click", async () => {
     document.querySelector("#lib-form").dispatchEvent(new Event("submit"));
   } catch (err) { status.textContent = "Error: " + err.message; }
 });
+
+// ---------- Reembed admin (Phase C) ----------
+const reembedBtn = document.getElementById("reembed-btn");
+if (reembedBtn) {
+  const statusEl = document.getElementById("reembed-status");
+  const progEl = document.getElementById("reembed-progress");
+  let polling = null;
+
+  async function pollReembed() {
+    try {
+      const st = await getJSON("/admin/reembed/status");
+      const pct = st.total ? Math.round((st.done / st.total) * 100) : 0;
+      progEl.textContent = `${st.done}/${st.total} (${pct}%)` + (st.model ? ` → ${st.model} ${st.dim}-d` : "");
+      if (!st.running) {
+        clearInterval(polling); polling = null;
+        reembedBtn.disabled = false;
+        statusEl.textContent = st.error ? ("Gagal: " + st.error) : "Selesai.";
+      }
+    } catch (err) {
+      clearInterval(polling); polling = null;
+      reembedBtn.disabled = false;
+      statusEl.textContent = "Error: " + err.message;
+    }
+  }
+
+  reembedBtn.addEventListener("click", async () => {
+    if (!confirm("Reembed seluruh korpus dengan model embedding aktif? Bisa lama.")) return;
+    reembedBtn.disabled = true;
+    statusEl.textContent = "Memulai...";
+    progEl.textContent = "";
+    try {
+      const res = await postJSON("/admin/reembed/start", { force: true });
+      statusEl.textContent = `Berjalan (${res.total} chunk)...`;
+      polling = setInterval(pollReembed, 1000);
+    } catch (err) {
+      reembedBtn.disabled = false;
+      statusEl.textContent = "Error: " + err.message;
+    }
+  });
+}
