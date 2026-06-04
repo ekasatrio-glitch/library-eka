@@ -18,6 +18,8 @@
     <nav class="nav">
       <button class="nav-item active" id="nav-chat" type="button">💬 Chat</button>
       <button class="nav-item" id="nav-projects" type="button">📁 Projects</button>
+      <button class="nav-item" id="nav-draft" type="button">📝 Draft</button>
+      <button class="nav-item" id="nav-mindmap" type="button">🗺️ Mindmap</button>
     </nav>
     <div class="side-body">
       <div id="chat-side">
@@ -40,6 +42,8 @@
   <main class="main">
     <section class="view" id="view-chat"></section>
     <section class="view" id="view-projects" hidden></section>
+    <section class="view" id="view-draft" hidden></section>
+    <section class="view" id="view-mindmap" hidden></section>
   </main>
 </div>
 
@@ -67,6 +71,7 @@
   <button class="splash-skip" id="splash-skip" type="button">Don't show again</button>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/markmap-autoloader@0.16"></script>
 <script type="module" src="/static/new/main.js"></script>
 </body>
 </html>
