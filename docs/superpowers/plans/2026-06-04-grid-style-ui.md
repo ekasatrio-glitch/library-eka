@@ -1142,7 +1142,7 @@ Expected: no FAIL lines.
 
 - [ ] **Step 3: Run all JS unit tests + full pytest**
 
-Run: `node --test tests/js/ && venv/bin/python -m pytest tests/ -q`
+Run: `node --test tests/js/*.test.mjs && venv/bin/python -m pytest tests/ -q`  (glob form — Node 24 treats the bare `tests/js/` directory path as a module to execute, not a dir to scan)
 Expected: all JS tests pass; pytest all PASS.
 
 - [ ] **Step 4: Manual verification** — start the app and check the spec's acceptance list:
