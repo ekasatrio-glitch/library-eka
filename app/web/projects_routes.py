@@ -169,6 +169,10 @@ def scoped_ask(project_id: int, req: ScopedAsk) -> JSONResponse:
     try:
         if not proj.get_project(conn, project_id):
             raise HTTPException(404, "project not found")
+        from app.rag.index_health import check_query_dim
+        mismatch = check_query_dim(conn)
+        if mismatch:
+            raise HTTPException(409, mismatch)
         doc_ids = proj.project_doc_ids(conn, project_id)
         scoped = bool(doc_ids) and not req.expand
         filters = {"doc_ids": doc_ids} if scoped else None

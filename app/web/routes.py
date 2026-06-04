@@ -38,6 +38,16 @@ def _filters(req: AskRequest) -> Dict[str, Any]:
 @router.post("/ask")
 def post_ask(req: AskRequest) -> JSONResponse:
     from app.rag.ask import ask  # lazy import: requires LLM key
+    from app.rag.index_health import check_query_dim
+
+    conn = connect()
+    try:
+        mismatch = check_query_dim(conn)
+    finally:
+        conn.close()
+    if mismatch:
+        raise HTTPException(status_code=409, detail=mismatch)
+
     try:
         result = ask(req.question, top_k=req.top_k, filters=_filters(req))
     except RuntimeError as e:
