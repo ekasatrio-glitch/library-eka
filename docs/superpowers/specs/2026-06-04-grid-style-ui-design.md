@@ -29,7 +29,7 @@ A welcome overlay covering `/new` on first load, dismissable, shown only once.
 - **Copy (English):**
   - Title (Merriweather): *"Welcome to **library-eka** — where all your books meet machine learning."* (brand word highlighted `--brand`)
   - Subtitle (Inter): *"Ask anything across your entire corpus. Precise answers with click-to-page citations."*
-- **Visual:** same tokens/fonts as the app. Radial `--brand-subtle` glow + `backdrop-filter:blur` over a faint app silhouette. Book+EKG logo at top. Animated EKG line below the copy: SVG path drawn via `stroke-dashoffset` keyframes (looping ~2.6s) with a soft blurred glow underlay; staggered `rise` fade-in for logo/title/subtitle/button. Respect `prefers-reduced-motion` → render the EKG static (no draw loop).
+- **Visual:** same tokens/fonts as the app. Radial `--brand-subtle` glow + `backdrop-filter:blur` over a faint app silhouette. Book+EKG logo at top. Animated EKG line below the copy in `--accent` (Gold 500 `#EAB308`): SVG path drawn via `stroke-dashoffset` keyframes (looping ~2.6s) with a soft blurred glow underlay (same color, low opacity); staggered `rise` fade-in for logo/title/subtitle/button. Respect `prefers-reduced-motion` → render the EKG static (no draw loop).
 - **Controls:** `✕` top-right, primary "Enter the library →" button, subtle "Don't show again" text button. All dismiss + set the flag.
 - **Implementation:** lives in `main.js` (or a small `splash.js` mounted by main.js); pure front-end, no backend route. CSS in `new.css`.
 
@@ -42,8 +42,11 @@ A welcome overlay covering `/new` on first load, dismissable, shown only once.
   --brand:#0369A1; --brand-hover:#075985; --brand-subtle:#E0F2FE;
   --border:#E2E8F0; --border-strong:#CBD5E1;
   --radius:12px; --shadow:0 8px 30px rgba(15,23,42,.05);
+  --accent:#EAB308; /* Gold 500 — splash EKG line only */
 }
 ```
+
+`--accent` (Gold 500) is reserved for the splash EKG animation (line + blurred glow). It is **not** used elsewhere — brand UI stays blue (`--brand`).
 
 Fonts (Google Fonts + fallback): **Inter** (UI), **Merriweather** serif (AI answer headings / page titles), **Fira Code** (cite-pills, ref numbers, monospace). Single responsive breakpoint at `768px` (sidebar hides on mobile).
 
