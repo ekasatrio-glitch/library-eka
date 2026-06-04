@@ -18,8 +18,17 @@ function citationLinks(cits) {
 
 function citationBlock(citations) {
   if (!citations || !citations.length) return "";
-  return `<details class="cites-toggle"><summary>📎 Sumber (${citations.length})</summary>` +
-    `<ol class="cites">${citationLinks(citations)}</ol></details>`;
+  const cited = citations.filter(c => c.cited !== false);
+  const uncited = citations.filter(c => c.cited === false);
+  // No split needed (old payloads, or LLM cited everything): classic single block.
+  if (!uncited.length) {
+    return `<details class="cites-toggle"><summary>📎 Sumber (${citations.length})</summary>` +
+      `<ol class="cites">${citationLinks(citations)}</ol></details>`;
+  }
+  return `<details class="cites-toggle" open><summary>📎 Sumber dikutip (${cited.length})</summary>` +
+    `<ol class="cites">${citationLinks(cited)}</ol></details>` +
+    `<details class="cites-toggle cites-uncited"><summary>Diambil, tidak dikutip (${uncited.length})</summary>` +
+    `<ol class="cites">${citationLinks(uncited)}</ol></details>`;
 }
 
 function appendChat(threadId, question, answer, citations, nudgeHtml) {

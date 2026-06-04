@@ -105,3 +105,4 @@ button.small { padding:.15rem .5rem; font-size:.85em; }
 .cites-toggle > summary { cursor:pointer; color:#8b93a7; font-size:.85em; list-style:none; user-select:none; }
 .cites-toggle > summary::-webkit-details-marker { display:none; }
 .cites-toggle[open] > summary { color:#b8c0d0; }
+.cites-uncited > summary { font-style: italic; opacity: .75; }
