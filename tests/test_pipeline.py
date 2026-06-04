@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 import fitz
 
+from app.core import config
 from app.core.db import init_db
 from app.ingest.chunker import chunk_pages
 from app.ingest.extractor import extract_pages
@@ -48,7 +49,7 @@ def test_pipeline_idempotent():
         conn = init_db(db)
 
         def fake_embed(texts, model=None, base_url=None):
-            return [[0.001 * i] * 768 for i, _ in enumerate(texts, 1)]
+            return [[0.001 * i] * config.EMBED_DIM for i, _ in enumerate(texts, 1)]
 
         with patch("app.ingest.pipeline.embed_texts", side_effect=fake_embed):
             ok, msg = ingest_pdf(pdf, conn=conn)
@@ -74,7 +75,7 @@ def test_reingest_modified_replaces_chunks():
         conn = init_db(db)
 
         def fake_embed(texts, model=None, base_url=None):
-            return [[0.001 * i] * 768 for i, _ in enumerate(texts, 1)]
+            return [[0.001 * i] * config.EMBED_DIM for i, _ in enumerate(texts, 1)]
 
         with patch("app.ingest.pipeline.embed_texts", side_effect=fake_embed):
             ok, msg = ingest_pdf(pdf, conn=conn)

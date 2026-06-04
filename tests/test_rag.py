@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 import fitz
 
+from app.core import config
 from app.core.db import init_db
 from app.ingest.pipeline import ingest_pdf
 from app.rag.ask import ask
@@ -22,10 +23,10 @@ def make_pdf(path: Path, text: str, pages: int = 1):
 
 
 def _embed_stub(texts, model=None, base_url=None):
-    # Map a few topic keywords to distinct unit-ish vectors in 768-d.
+    # Map a few topic keywords to distinct unit-ish vectors (config.EMBED_DIM-d).
     out = []
     for t in texts:
-        v = [0.0] * 768
+        v = [0.0] * config.EMBED_DIM
         lower = t.lower()
         if "quantum" in lower:
             v[0] = 1.0

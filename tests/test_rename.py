@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 import fitz
 
+from app.core import config
 from app.core.db import init_db
 from app.ingest.pipeline import ingest_pdf
 from app.ingest import rename as rn
@@ -21,7 +22,7 @@ def _mk(path: Path, text: str, pages: int = 1):
 
 
 def _embed(texts, model=None, base_url=None):
-    return [[0.01] * 768 for _ in texts]
+    return [[0.01] * config.EMBED_DIM for _ in texts]
 
 
 # ---- pure string handling (no regex) ----

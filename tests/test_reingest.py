@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 import fitz
 
+from app.core import config
 from app.core.db import get_meta, init_db
 from app.ingest import reingest as ri
 from app.ingest.pipeline import ingest_pdf
@@ -19,7 +20,7 @@ def _mk(path: Path, text: str, pages: int = 2):
 
 
 def _embed(texts, model=None, base_url=None):
-    return [[0.02] * 768 for _ in texts]
+    return [[0.02] * config.EMBED_DIM for _ in texts]
 
 
 def test_reingest_all_rebuilds_chunks_fts_and_is_idempotent():
@@ -101,7 +102,7 @@ def test_reingest_embed_length_mismatch_does_not_lose_chunks():
         assert chunks_before > 1
 
         def bad_embed(texts):
-            return [[0.0] * 768]  # too few vectors (1 < n chunks)
+            return [[0.0] * config.EMBED_DIM]  # too few vectors (1 < n chunks)
 
         res = ri.reingest_all(conn, embed_fn=bad_embed)
         assert res["status"] == "partial" and res["errors"] == 1

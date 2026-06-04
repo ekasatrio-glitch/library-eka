@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 import fitz
 
+from app.core import config
 from app.core.db import init_db
 from app.ingest.pipeline import ingest_pdf
 from app.rag.drafting import draft_paragraph
@@ -21,7 +22,7 @@ def make_pdf(path: Path, text: str, pages: int = 1):
 
 
 def _embed_stub(texts, model=None, base_url=None):
-    return [[1.0] + [0.0] * 767 for _ in texts]
+    return [[1.0] + [0.0] * (config.EMBED_DIM - 1) for _ in texts]
 
 
 def test_vancouver_draft():

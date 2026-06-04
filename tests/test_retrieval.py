@@ -3,6 +3,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from app.core import config
+
 import fitz
 import pytest
 
@@ -24,7 +26,7 @@ def _mk(path: Path, text: str, pages: int = 2):
 def _embed_stub(texts, model=None, base_url=None):
     out = []
     for t in texts:
-        v = [0.0] * 768
+        v = [0.0] * config.EMBED_DIM
         low = t.lower()
         v[0] = 1.0 if "quantum" in low else 0.0
         v[1] = 1.0 if "biology" in low else 0.0

@@ -1,5 +1,6 @@
 import io
 
+from app.core import config
 from app.rag.matrix import snap_tag
 from app.web.export import (
     bootstrap_codebook_from_bytes,
@@ -97,7 +98,7 @@ def test_export_and_codebook_endpoints(tmp_path, monkeypatch):
         d.save(str(path)); d.close()
 
     def _embed(texts, model=None, base_url=None):
-        return [[0.01] * 768 for _ in texts]
+        return [[0.01] * config.EMBED_DIM for _ in texts]
 
     db = str(tmp_path / "e.db")
     monkeypatch.setattr(dbmod, "DB_PATH", db)

@@ -20,7 +20,7 @@ def make_pdf(path: Path, text: str = "hello world content " * 50, pages: int = 2
 def _embed_stub(texts, model=None, base_url=None):
     out = []
     for _ in texts:
-        v = [0.0] * 768
+        v = [0.0] * cfg.EMBED_DIM
         v[0] = 1.0
         out.append(v)
     return out

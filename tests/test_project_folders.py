@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 import fitz
 
+from app.core import config
 from app.core import projects as proj
 from app.core.db import ensure_column, init_db
 from app.ingest.pipeline import ingest_pdf
@@ -15,7 +16,7 @@ def _mk(path: Path, text: str):
 
 
 def _embed(texts, model=None, base_url=None):
-    return [[0.01] * 768 for _ in texts]
+    return [[0.01] * config.EMBED_DIM for _ in texts]
 
 
 def test_slugify():

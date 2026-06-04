@@ -1,6 +1,7 @@
 import tempfile
 from pathlib import Path
 
+from app.core import config
 from app.core.db import (
     init_db,
     upsert_document,
@@ -31,14 +32,14 @@ def test_init_and_insert():
         assert doc_id > 0
         assert document_exists(conn, "hash123") == doc_id
 
-        emb = [0.01] * 768
+        emb = [0.01] * config.EMBED_DIM
         chunk_id = insert_chunk(conn, doc_id, 1, 2, "hello world", emb)
         assert chunk_id > 0
 
         rows = conn.execute(
             "SELECT chunk_id, distance FROM vec_chunks "
             "WHERE embedding MATCH ? ORDER BY distance LIMIT 5",
-            (b"".join(b"\x0a\xd7\x23\x3c" for _ in range(768)),),
+            (b"".join(b"\x0a\xd7\x23\x3c" for _ in range(config.EMBED_DIM)),),
         ).fetchall()
         assert len(rows) >= 1
 

@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 import fitz
 
+from app.core import config
 from app.core.db import init_db
 from app.ingest.watcher import _InFlight, _wait_stable, _worker, startup_scan
 
@@ -56,7 +57,7 @@ def test_worker_processes_queue():
         stop = threading.Event()
 
         def fake_embed(texts, model=None, base_url=None):
-            return [[0.01] * 768 for _ in texts]
+            return [[0.01] * config.EMBED_DIM for _ in texts]
 
         with patch("app.ingest.pipeline.embed_texts", side_effect=fake_embed), \
              patch("app.ingest.watcher._wait_stable", return_value=True):
