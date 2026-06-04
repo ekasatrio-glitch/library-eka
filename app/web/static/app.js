@@ -103,13 +103,25 @@ document.getElementById("ask-form").addEventListener("submit", async (e) => {
 document.getElementById("draft-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const para = document.getElementById("draft-paragraph");
-  const refs = document.getElementById("draft-refs");
+  const refsEl = document.getElementById("draft-refs");
   para.textContent = "Menulis draft...";
-  refs.innerHTML = "";
+  refsEl.innerHTML = "";
   try {
     const res = await postJSON("/draft", formToBody(e.target));
     para.textContent = res.paragraph;
-    refs.innerHTML = (res.references || []).map(r => `<li>${escapeHtml(r)}</li>`).join("");
+    const refs = res.references || [];
+    const cits = res.citations || [];
+    // references[i] pairs with citations[i] (same retrieval order).
+    const cited = [], uncited = [];
+    refs.forEach((r, i) => {
+      ((cits[i] && cits[i].cited === false) ? uncited : cited).push(r);
+    });
+    let html = `<ol class="citations">${cited.map(r => `<li>${escapeHtml(r)}</li>`).join("")}</ol>`;
+    if (uncited.length) {
+      html += `<details class="cites-toggle cites-uncited"><summary>Diambil, tidak dikutip (${uncited.length})</summary>` +
+        `<ol class="citations">${uncited.map(r => `<li>${escapeHtml(r)}</li>`).join("")}</ol></details>`;
+    }
+    refsEl.innerHTML = html;
   } catch (err) { para.textContent = "Error: " + err.message; }
 });
 
