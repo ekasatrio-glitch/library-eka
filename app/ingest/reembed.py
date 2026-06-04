@@ -19,7 +19,7 @@ Usage:
 
 import argparse
 import sys
-from typing import Optional
+from typing import Callable, Optional
 
 from app.core.db import (
     get_meta,
@@ -47,6 +47,7 @@ def reembed(
     db_path: Optional[str] = None,
     base_url: Optional[str] = None,
     force: bool = False,
+    progress=None,
 ) -> int:
     conn = init_db(db_path)  # ensure schema (meta table, FTS) exists, even on legacy DBs
     try:
@@ -96,6 +97,8 @@ def reembed(
             conn.commit()
             done += len(part)
             print(f"[reembed] {done}/{total}", file=sys.stderr)
+            if progress:
+                progress(done, total)
 
         set_meta(conn, "embed_model", model)
         set_meta(conn, "embed_dim", str(dim))
