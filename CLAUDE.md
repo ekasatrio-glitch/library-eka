@@ -77,4 +77,4 @@ Semantic title extraction (LLM + optional Crossref, no regex). Registry-safe: fi
 
 ## Environment
 
-Requires Ollama running locally for embeddings (`ollama pull nomic-embed-text`). LLM keys in `.env` (see `.env.example`). First Docling run downloads layout/table models (hundreds of MB).
+Requires Ollama running locally for embeddings (`ollama pull bge-m3` — the default model; `nomic-embed-text` if using the 768-d alt). LLM keys in `.env` (see `.env.example`). First Docling run downloads layout/table models (hundreds of MB).
