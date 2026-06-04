@@ -188,3 +188,8 @@ def index(request: Request):
 @router.get("/viewer", response_class=HTMLResponse)
 def viewer(request: Request):
     return templates.TemplateResponse(request, "viewer.html", {})
+
+
+@router.get("/new", response_class=HTMLResponse)
+def new_ui(request: Request):
+    return templates.TemplateResponse(request, "new.html", {})
