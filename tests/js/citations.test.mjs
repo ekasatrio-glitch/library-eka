@@ -46,3 +46,20 @@ test('renderAnswerHtml combines pills + sources', () => {
 test('renderAnswerHtml with no citations returns just escaped text', () => {
   assert.equal(renderAnswerHtml('halo', []), 'halo');
 });
+
+test('pillsForAnswer paren style turns (n) into a pill', () => {
+  const html = pillsForAnswer('Bukti efek (2).', cits, 'paren');
+  assert.match(html, /class="pill"[^>]*href="\/viewer\?doc=11#page=5"/);
+  assert.ok(!html.includes('(2)'), 'paren marker should be replaced');
+});
+
+test('pillsForAnswer paren leaves out-of-range (year) as text', () => {
+  const html = pillsForAnswer('Menurut studi (2020).', cits, 'paren');
+  assert.match(html, /\(2020\)/);
+});
+
+test('pillsForAnswer square is still the default', () => {
+  const html = pillsForAnswer('Klaim [2].', cits);
+  assert.match(html, /class="pill"/);
+  assert.ok(!html.includes('[2]'));
+});

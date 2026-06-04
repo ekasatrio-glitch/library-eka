@@ -8,10 +8,11 @@ function citeLink(c) {
   return `<li><a href="${viewerHref(c)}" target="_blank">[${c.n}] ${escapeHtml(c.title)} (${pg})</a></li>`;
 }
 
-// Replace [n] markers in the (escaped) answer with superscript pills.
-export function pillsForAnswer(answer, citations) {
+// Replace [n] (square) or (n) (paren) markers in the (escaped) answer with pills.
+export function pillsForAnswer(answer, citations, style = "square") {
   const byN = new Map(citations.map(c => [c.n, c]));
-  return escapeHtml(answer).replace(/\[(\d+)\]/g, (m, d) => {
+  const re = style === "paren" ? /\((\d+)\)/g : /\[(\d+)\]/g;
+  return escapeHtml(answer).replace(re, (m, d) => {
     const c = byN.get(Number(d));
     if (!c) return m; // out-of-range marker: leave as text
     return `<a class="pill" href="${viewerHref(c)}" target="_blank" title="${escapeHtml(c.title)}">${c.n}</a>`;
@@ -32,6 +33,6 @@ export function sourcesBlock(citations) {
     `<ul class="reflist">${uncited.map(citeLink).join("")}</ul></details>`;
 }
 
-export function renderAnswerHtml(answer, citations) {
-  return pillsForAnswer(answer, citations) + sourcesBlock(citations);
+export function renderAnswerHtml(answer, citations, style = "square") {
+  return pillsForAnswer(answer, citations, style) + sourcesBlock(citations);
 }
