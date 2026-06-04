@@ -5,7 +5,7 @@ from app.web.app import create_app
 
 def _html():
     client = TestClient(create_app())
-    r = client.get("/")
+    r = client.get("/tools")
     assert r.status_code == 200
     return r.text
 
