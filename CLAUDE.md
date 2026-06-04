@@ -11,9 +11,12 @@ Personal local RAG system for a scientific PDF corpus: ingest → hybrid retriev
 ```bash
 source venv/bin/activate                 # always work inside the venv
 
-python -m pytest tests/ -v               # full test suite
+python -m pytest tests/ -v               # full Python suite
 python -m pytest tests/test_rag.py -v    # single file
 python -m pytest tests/test_rag.py::test_name -v   # single test
+
+node --test tests/js/*.test.mjs          # JS unit tests (Node 24 built-in, zero deps)
+# Use the GLOB form, not `tests/js/` — Node 24 treats a bare dir path as a module to run.
 
 scripts/run.sh                           # web (http://127.0.0.1:8765) + watcher (logs/watcher.log)
 scripts/start.command                    # double-click launcher: Ollama + watcher + web + browser
@@ -44,9 +47,17 @@ Hybrid: dense (sqlite-vec KNN) + sparse (FTS5/BM25) fused with RRF (k=60), then 
 
 `ask.py` is end-to-end RAG (retrieve → generate → cite). LLM via OpenAI-compatible API: DeepSeek default, Jatevo fallback (`config.llm_config()`). `drafting.py` (Vancouver/APA paragraphs), `mindmap.py` (MarkMap markdown, multi-query retrieval), `matrix.py` (per-paper structured extraction, auto-schema `empiris|review|meta-analisis`, strictly grounded — gaps written explicitly as `tidak disebutkan`).
 
+`citation.py` flags each `Citation.cited` by parsing the markers the LLM actually emitted (`extract_cited_ns` + `mark_cited`): `[n]` for chat answers (`ask.py`), `(n)` for Vancouver drafts. Out-of-range numbers (e.g. a year `(2020)`) are ignored; if no valid marker is found, everything stays `cited=True` so the UI falls back to a single source list. The UI then splits sources into "cited" vs "Diambil, tidak dikutip". APA drafts have no numeric markers and stay all-cited.
+
 ### Web (`app/web/`)
 
-FastAPI app in `app.py`; routes split into `routes.py` (ask/draft/mindmap/library/pdf/viewer), `projects_routes.py` (scoped chat with `expand` + discovery nudge), `rename_routes.py`, `export.py` (XLSX/CSV with codebook coloring). UI is Jinja templates + static JS (PDF.js viewer, MarkMap).
+FastAPI app in `app.py`; routes split into `routes.py` (ask/draft/mindmap/library/pdf/viewer + `/new`), `projects_routes.py` (scoped chat with `expand` + discovery nudge), `rename_routes.py`, `export.py` (XLSX/CSV with codebook coloring).
+
+Two front-ends:
+- **Legacy** `/` (`templates/index.html` + `static/app.js`, `static/app.css`) — all five tabs (chat/draft/mindmap/library/projects), PDF.js viewer, MarkMap.
+- **Grid-style** `/new` (`templates/new.html` + `static/new/*`) — a parallel, restyled UI covering Chat + Projects only, with a first-visit splash (animated EKG). Native ES modules, no build step: `api.js` (fetch/escape — the only `fetch` site), `citations.js` (cite-pills + cited/uncited split), `history.js` (conversations in `localStorage`, not synced to VPS), `splash.js` (first-visit flag `libeka.splashSeen`), `chat.js`/`projects.js` (DOM views), `main.js` (entry: splash, nav, mounts). The four pure modules are DOM-free and unit-tested with `node:test`; `chat/projects/main` + CSS are verified manually. `/new` adds no backend state — it reuses existing endpoints. The two UIs are independent; don't let a `/new` change touch `/`.
+
+Design tokens for `/new` live in `static/new/new.css` (`:root` vars: sky-blue `--brand:#0369A1`, Inter/Merriweather/Fira Code, `--accent:#D97706` Amber 600 reserved for the splash EKG only). See spec `docs/superpowers/specs/2026-06-04-grid-style-ui-design.md`.
 
 ### Projects
 
