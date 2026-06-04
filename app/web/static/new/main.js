@@ -6,6 +6,7 @@ import { mountChat } from "./chat.js";
 import { mountProjects } from "./projects.js";
 import { mountDraft } from "./draft.js";
 import { mountMindmap } from "./mindmap.js";
+import { makeMindmapStore } from "./mindmaps.js";
 
 const history = makeHistory(window.localStorage);
 
@@ -23,21 +24,24 @@ const viewDraft = document.getElementById("view-draft");
 const viewMindmap = document.getElementById("view-mindmap");
 const navDraft = document.getElementById("nav-draft");
 const navMindmap = document.getElementById("nav-mindmap");
+const mindmapSide = document.getElementById("mindmap-side");
+const mindmapRecent = document.getElementById("mindmap-recent");
+const mindmaps = makeMindmapStore(window.localStorage);
 
 const NAVS = [navChat, navProjects, navDraft, navMindmap];
 const VIEWS = [viewChat, viewProjects, viewDraft, viewMindmap];
+const SIDES = [chatSide, projectsSide, mindmapSide];
 
-function activate(nav, view, showProjectsSide) {
+function activate(nav, view, sideEl) {
   NAVS.forEach(n => n.classList.toggle("active", n === nav));
   VIEWS.forEach(v => { v.hidden = v !== view; });
-  // Draft/Mindmap reuse the Chat sidebar body (Recent) so the sidebar is never blank.
-  chatSide.hidden = showProjectsSide;
-  projectsSide.hidden = !showProjectsSide;
+  // Show exactly one sidebar body. Draft reuses the Chat body (Recent).
+  SIDES.forEach(s => { s.hidden = s !== sideEl; });
 }
-function showChat() { activate(navChat, viewChat, false); }
-function showProjects() { activate(navProjects, viewProjects, true); }
-function showDraft() { activate(navDraft, viewDraft, false); }
-function showMindmap() { activate(navMindmap, viewMindmap, false); }
+function showChat() { activate(navChat, viewChat, chatSide); }
+function showProjects() { activate(navProjects, viewProjects, projectsSide); }
+function showDraft() { activate(navDraft, viewDraft, chatSide); }
+function showMindmap() { activate(navMindmap, viewMindmap, mindmapSide); }
 
 navChat.addEventListener("click", showChat);
 navProjects.addEventListener("click", showProjects);
@@ -117,7 +121,7 @@ document.getElementById("new-project").addEventListener("click", () => {
 
 // draft + mindmap (stateless, mounted once)
 mountDraft(viewDraft);
-mountMindmap(viewMindmap);
+mountMindmap(viewMindmap, { store: mindmaps, recentEl: mindmapRecent });
 
 // boot
 newChat();
