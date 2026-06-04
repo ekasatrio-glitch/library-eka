@@ -14,7 +14,9 @@ def make_pdf(path: Path, text: str, pages: int = 1):
     doc = fitz.open()
     for i in range(pages):
         page = doc.new_page()
-        page.insert_text((72, 72), f"{text}\nPage {i+1}", fontsize=10)
+        # insert_textbox fills the whole page so PyMuPDF extracts substantial text
+        # (insert_text clips at page bounds and produces very little text).
+        page.insert_textbox(page.rect, f"{text}\nPage {i+1}", fontsize=8)
     doc.save(str(path))
     doc.close()
 
@@ -82,4 +84,51 @@ def test_ask_with_mock_llm():
         cit = res["citations"][0]
         for k in ("n", "doc_id", "title", "page_start", "page_end", "path"):
             assert k in cit
+        conn.close()
+
+
+def test_ask_marks_cited_subset():
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        db = str(root / "t.db")
+        a = root / "quantum.pdf"
+        # Repeat text so each page fills >4000 chars, ensuring >=2 chunks after ingest.
+        page_text = "Quantum entanglement Bell test inequality measurement. " * 100
+        make_pdf(a, page_text, pages=2)
+        conn = init_db(db)
+        with patch("app.ingest.pipeline.embed_texts", side_effect=_embed_stub):
+            ingest_pdf(a, conn=conn)
+
+        def fake_chat(system, user, **kw):
+            return "Entanglement is correlation [2]."
+
+        with patch("app.rag.retriever.embed_one", side_effect=lambda q: _embed_stub([q])[0]), \
+             patch("app.rag.ask.chat", side_effect=fake_chat):
+            res = ask("what is entanglement?", top_k=3, conn=conn)
+
+        cits = res["citations"]
+        assert len(cits) >= 2, "need >=2 retrieved chunks for this test"
+        assert all("cited" in c for c in cits)
+        assert [c["cited"] for c in cits] == [c["n"] == 2 for c in cits]
+        conn.close()
+
+
+def test_ask_no_markers_keeps_all_cited():
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        db = str(root / "t.db")
+        a = root / "quantum.pdf"
+        make_pdf(a, "Quantum entanglement Bell test inequality measurement", pages=2)
+        conn = init_db(db)
+        with patch("app.ingest.pipeline.embed_texts", side_effect=_embed_stub):
+            ingest_pdf(a, conn=conn)
+
+        def fake_chat(system, user, **kw):
+            return "Answer without any markers."
+
+        with patch("app.rag.retriever.embed_one", side_effect=lambda q: _embed_stub([q])[0]), \
+             patch("app.rag.ask.chat", side_effect=fake_chat):
+            res = ask("what is entanglement?", top_k=2, conn=conn)
+
+        assert all(c["cited"] for c in res["citations"])
         conn.close()

@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
 
-from app.rag.citation import Citation, build_citations, format_context
+from app.rag.citation import Citation, build_citations, extract_cited_ns, format_context, mark_cited
 from app.rag.generator import chat
 from app.rag.retriever import Hit, search
 
@@ -38,6 +38,7 @@ def ask(
         }
     ctx = format_context(hits)
     answer = chat(SYSTEM, USER_TMPL.format(question=question, context=ctx))
+    mark_cited(citations, extract_cited_ns(answer, style="square"))
     return {
         "answer": answer,
         "citations": [c.to_dict() for c in citations],
