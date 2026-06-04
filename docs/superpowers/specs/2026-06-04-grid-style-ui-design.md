@@ -19,6 +19,19 @@ Rebuild the library-eka web UI in the visual style of `grid.jatevo.ai` ("Grid An
 | 6 | Citations | **Pills + collapsed sources (Option B):** `[n]` markers render as click-to-PDF cite-pills; the full source list lives behind a 📎 toggle. The cited / "Diambil, tidak dikutip" split (shipped earlier today) is preserved. |
 | 7 | Cutover | **Parallel route `/new`.** Old UI stays at `/` untouched. Swap is a separate later decision. |
 | 8 | Brand mark | **Open book + EKG pulse line** (medical), SVG stroke in brand color `#0369A1`. No lightning bolt. |
+| 9 | Splash | First-visit welcome overlay with animated EKG, English tagline, close. Shown **once** (localStorage flag). |
+
+## Splash screen (first visit only)
+
+A welcome overlay covering `/new` on first load, dismissable, shown only once.
+
+- **Trigger:** on `/new` load, if `localStorage['libeka.splashSeen']` is unset → show. Dismiss (✕, "Enter the library →", or "Don't show again") sets the flag so it never reappears. ("Don't show again" and the two dismiss buttons all set the same flag — there is no per-session reshow.)
+- **Copy (English):**
+  - Title (Merriweather): *"Welcome to **library-eka** — where all your books meet machine learning."* (brand word highlighted `--brand`)
+  - Subtitle (Inter): *"Ask anything across your entire corpus. Precise answers with click-to-page citations."*
+- **Visual:** same tokens/fonts as the app. Radial `--brand-subtle` glow + `backdrop-filter:blur` over a faint app silhouette. Book+EKG logo at top. Animated EKG line below the copy: SVG path drawn via `stroke-dashoffset` keyframes (looping ~2.6s) with a soft blurred glow underlay; staggered `rise` fade-in for logo/title/subtitle/button. Respect `prefers-reduced-motion` → render the EKG static (no draw loop).
+- **Controls:** `✕` top-right, primary "Enter the library →" button, subtle "Don't show again" text button. All dismiss + set the flag.
+- **Implementation:** lives in `main.js` (or a small `splash.js` mounted by main.js); pure front-end, no backend route. CSS in `new.css`.
 
 ## Design tokens (from Grid Analyst)
 
@@ -44,7 +57,7 @@ app/web/
   templates/new.html        # shell: sidebar + main, <script type="module" src=".../main.js">
   static/new/
     new.css                 # tokens + layout (sidebar, chat, projects, matrix, input)
-    main.js                 # entry: view switcher (Chat ⟷ Projects), sidebar render, routing-in-page
+    main.js                 # entry: splash (first-visit), view switcher (Chat ⟷ Projects), sidebar render, routing-in-page
     api.js                  # postJSON / getJSON helpers, escapeHtml
     chat.js                 # chat thread, input (Enter=send, Shift+Enter=newline), empty-state cards, streaming-state
     citations.js            # parse [n] → cite-pill (→ /viewer?doc=&page=), 📎 toggle, cited/uncited split
@@ -104,5 +117,5 @@ No new backend state. History is browser-local by decision #3.
 ## Testing
 
 - Existing pytest suite must stay green (82 passing) — backend only gains a `GET /new` route returning 200 + the shell HTML; add one route test in `tests/test_web_ui.py`.
-- JS has no unit harness in-repo; verify manually via `scripts/run.sh` → `http://127.0.0.1:8765/new`: empty state, ask flow with cite-pills + cited/uncited toggle, history persists across reload, project switch, matrix render, export download, mobile width (<768px) hides sidebar.
+- JS has no unit harness in-repo; verify manually via `scripts/run.sh` → `http://127.0.0.1:8765/new`: splash shows on first visit + dismiss sets flag + does not reappear on reload, empty state, ask flow with cite-pills + cited/uncited toggle, history persists across reload, project switch, matrix render, export download, mobile width (<768px) hides sidebar.
 - `node --check` each ES module before commit.
