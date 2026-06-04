@@ -82,13 +82,14 @@ class MindmapRequest(BaseModel):
     topic: str = Field(..., min_length=1)
     breadth: int = 4
     top_k: int = 6
+    doc_ids: Optional[List[int]] = None
 
 
 @router.post("/mindmap")
 def post_mindmap(req: MindmapRequest) -> JSONResponse:
     from app.rag.mindmap import build_mindmap
     try:
-        out = build_mindmap(req.topic, breadth=req.breadth, top_k=req.top_k)
+        out = build_mindmap(req.topic, breadth=req.breadth, top_k=req.top_k, doc_ids=req.doc_ids)
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
     return JSONResponse(out)

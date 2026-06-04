@@ -52,3 +52,22 @@ def test_build_mindmap_no_doc_ids_means_no_filter():
         mm.build_mindmap("sedasi", breadth=2)
 
     assert calls and all(f is None for f in calls), calls
+
+
+def test_mindmap_route_forwards_doc_ids():
+    from fastapi.testclient import TestClient
+
+    from app.web.app import create_app
+
+    seen = {}
+
+    def fake_build(topic, breadth=4, top_k=6, doc_ids=None):
+        seen["topic"] = topic
+        seen["doc_ids"] = doc_ids
+        return {"markdown": "# x", "citations": [], "subtopics": []}
+
+    with patch("app.rag.mindmap.build_mindmap", side_effect=fake_build):
+        client = TestClient(create_app())
+        r = client.post("/mindmap", json={"topic": "sedasi", "doc_ids": [7, 9]})
+    assert r.status_code == 200
+    assert seen["doc_ids"] == [7, 9]
