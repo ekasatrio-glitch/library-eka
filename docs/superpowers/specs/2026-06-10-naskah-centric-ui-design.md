@@ -70,6 +70,12 @@ Two changes:
    - All uploads use this one path — no sync/async branching by file size.
    - On job completion the document is linked to the naskah (hash-dedupe behavior unchanged).
 
+3. **LLM model switcher (admin mini-menu).** Switch the *generation* LLM (DeepSeek / Jatevo / future additions) at runtime — never the embedding model (that stays in the `/tools` reembed panel with its dim-mismatch guards).
+   - Choices come from config: an `LLM_CHOICES` entry in `.env` (provider/model list). Adding a model later = edit `.env`, no code change. Default list: the two existing providers.
+   - `GET /admin/llm` → `{choices, active}`; `POST /admin/llm` → set active choice.
+   - Active choice persisted in the existing `meta` table; `config.llm_config()` consults the override, falls back to current env behavior when unset. Hermes/VPS unaffected (reads its own env).
+   - UI: small ⚙ icon in the Beranda corner (next to "Semua PDF") opening a minimal panel — radio list of models + save. Not a main tab; invisible enough not to confuse the primary user.
+
 No DB schema, retrieval, or VPS-sync changes.
 
 ## Frontend Changes
@@ -99,6 +105,7 @@ The two UIs remain independent: no `/` change touches `/tools`.
 - New: `/draft` with `doc_ids` restricts retrieval to those documents.
 - New: async upload — job registered, status polls through stages, document linked on completion, dedupe re-upload reports already-present; failure surfaces in `error`. (Pattern mirrors `test_admin_reembed.py`.)
 - New: `ingest_pdf(progress=...)` callback fires with sane done/total.
+- New: LLM switcher — `GET/POST /admin/llm` round-trip, persistence in `meta`, `llm_config()` honors override and falls back to env.
 - Updated: `tests/test_new_ui.py` — `/` serves grid UI with new structure and Indonesian labels.
 - Unchanged endpoints keep their existing tests.
 
@@ -119,8 +126,9 @@ Each step lands green before the next:
 4. Beranda: naskah card list as the main screen.
 5. Ruang kerja: four inner tabs wired to existing endpoints; mindmap as Paper-tab action.
 6. Upload UI: drag-drop in Paper tab → async job + progress bar polling.
-7. Copy pass: Indonesian labels + friendly error messages; drop "Tools lama" link from nav.
-8. Manual end-to-end verification.
+7. LLM switcher: backend endpoints + meta persistence + ⚙ mini-panel.
+8. Copy pass: Indonesian labels + friendly error messages; drop "Tools lama" link from nav.
+9. Manual end-to-end verification.
 
 ## Risks / Non-Goals
 
