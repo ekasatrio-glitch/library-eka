@@ -2,6 +2,7 @@ import tempfile
 from pathlib import Path
 
 from app.core import config
+from app.core import projects as proj
 from app.core.db import (
     init_db,
     upsert_document,
@@ -45,4 +46,38 @@ def test_init_and_insert():
 
         delete_document(conn, doc_id)
         assert document_exists(conn, "hash123") is None
+        conn.close()
+
+
+def test_project_framework_table_and_cascade():
+    with tempfile.TemporaryDirectory() as td:
+        conn = init_db(str(Path(td) / "t.db"))
+        pid = proj.create_project(conn, "P")
+        conn.execute(
+            "INSERT INTO project_framework (project_id, title, dsl, citations, variables) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (pid, "Judul", "[diteliti] A", "{}", "{}"),
+        )
+        conn.commit()
+        row = conn.execute(
+            "SELECT title, dsl FROM project_framework WHERE project_id=?", (pid,)
+        ).fetchone()
+        assert row == ("Judul", "[diteliti] A")
+
+        # Upsert: second write to same project_id updates, not duplicates.
+        conn.execute(
+            "INSERT INTO project_framework (project_id, dsl) VALUES (?, ?) "
+            "ON CONFLICT(project_id) DO UPDATE SET dsl=excluded.dsl",
+            (pid, "[diteliti] B"),
+        )
+        conn.commit()
+        assert conn.execute(
+            "SELECT COUNT(*) FROM project_framework WHERE project_id=?", (pid,)
+        ).fetchone()[0] == 1
+
+        # CASCADE: deleting the project removes its framework row.
+        proj.delete_project(conn, pid)
+        assert conn.execute(
+            "SELECT COUNT(*) FROM project_framework WHERE project_id=?", (pid,)
+        ).fetchone()[0] == 0
         conn.close()
