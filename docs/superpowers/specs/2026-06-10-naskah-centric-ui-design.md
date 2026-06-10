@@ -68,7 +68,7 @@ All within `templates/new.html` + `static/new/*` (the `/` UI). The legacy `/tool
 - `new.html`: sidebar 4-nav replaced by Beranda/workspace structure.
 - `main.js`: routes between Beranda and workspace views; mounts tabs.
 - Reused as-is or lightly parameterized: `chat.js` (already endpoint+nudge parametric), `draft.js` (gains doc_ids), `mindmap.js` (rendered in panel), `citations.js`, `api.js`, `splash.js`.
-- `history.js`: conversations keyed by naskah (`scope: projectId`); list filtered per scope. (Pure module — unit-tested.)
+- `history.js`: conversations keyed by naskah (`scope: projectId`); list filtered per scope. Existing `scope: "global"` conversations remain in localStorage but are no longer surfaced — no data loss, no migration. (Pure module — unit-tested.)
 - `projects.js`: becomes the Beranda card list + workspace shell.
 - `new.css`: styles for cards, inner tabs, upload dropzone; design tokens unchanged (sky-blue brand, Amber reserved for splash EKG).
 
