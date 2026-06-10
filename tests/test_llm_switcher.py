@@ -1,3 +1,5 @@
+import os
+import pytest
 from unittest.mock import patch
 
 from fastapi import FastAPI
@@ -17,7 +19,11 @@ def test_llm_config_choice_overrides_provider(monkeypatch):
 def test_llm_config_choice_without_model_uses_env_default(monkeypatch):
     key, base, model = cfg.llm_config("deepseek")
     assert base == cfg.DEEPSEEK_BASE_URL
-    assert model  # falls back to DEEPSEEK_MODEL env default
+    assert model == os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+
+def test_llm_config_unknown_provider_raises():
+    with pytest.raises(ValueError, match="unknown LLM provider"):
+        cfg.llm_config("gpt-99:foo")
 
 
 def _client(tmp_path, monkeypatch):

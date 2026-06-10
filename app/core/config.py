@@ -55,4 +55,6 @@ def llm_config(choice: Optional[str] = None) -> tuple[str, str, str]:
                 "(empty base_url silently falls back to api.openai.com)"
             )
         return JATEVO_API_KEY, JATEVO_BASE_URL, model or os.getenv("JATEVO_MODEL", "jatevo-default")
+    if provider != "deepseek":
+        raise ValueError(f"unknown LLM provider: {provider!r} (expected deepseek or jatevo)")
     return DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, model or os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
