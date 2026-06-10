@@ -9,46 +9,18 @@
 <link rel="stylesheet" href="/static/new/new.css">
 </head>
 <body>
-<div class="app">
-  <aside class="sidebar" id="sidebar">
+<div class="app app-shell">
+  <header class="topbar">
     <div class="brand">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h7a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H4z"/><path d="M20 4h-7a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h7z"/><path d="M12.5 10h1.5l1 2 1.5-3 1 1H19"/></svg>
       <span>library-eka</span>
     </div>
-    <nav class="nav">
-      <button class="nav-item active" id="nav-chat" type="button">💬 Chat</button>
-      <button class="nav-item" id="nav-projects" type="button">📁 Projects</button>
-      <button class="nav-item" id="nav-draft" type="button">📝 Draft</button>
-      <button class="nav-item" id="nav-mindmap" type="button">🗺️ Mindmap</button>
-    </nav>
-    <div class="side-body">
-      <div id="chat-side">
-        <button class="side-btn" id="new-conversation" type="button">+ Percakapan baru</button>
-        <div class="side-label">Recent</div>
-        <div id="recent-list"></div>
-      </div>
-      <div id="projects-side" hidden>
-        <div class="side-label">Projects</div>
-        <div id="projects-list"></div>
-        <button class="side-btn" id="new-project" type="button">+ Proyek baru</button>
-      </div>
-      <div id="mindmap-side" hidden>
-        <div class="side-label">Mindmap tersimpan</div>
-        <div id="mindmap-recent"></div>
-      </div>
+    <div class="top-actions">
+      <a class="top-link" href="/tools#tab-library">Semua PDF ↗</a>
+      <button class="gear" id="admin-gear" type="button" title="Pengaturan model" aria-label="Pengaturan model">⚙</button>
     </div>
-    <div class="side-foot">
-      <a href="/tools#tab-library">Library ↗</a> · <a href="/tools">Tools lama ↗</a>
-      <div>Powered by Jatevo · DeepSeek</div>
-    </div>
-  </aside>
-
-  <main class="main">
-    <section class="view" id="view-chat"></section>
-    <section class="view" id="view-projects" hidden></section>
-    <section class="view" id="view-draft" hidden></section>
-    <section class="view" id="view-mindmap" hidden></section>
-  </main>
+  </header>
+  <main class="screen" id="screen"></main>
 </div>
 
 <noscript>

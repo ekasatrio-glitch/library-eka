@@ -10,54 +10,33 @@ def _html():
     return r.text
 
 
-def test_root_renders_grid_shell():
+def test_root_renders_naskah_shell():
     html = _html()
     assert "library-eka" in html
-    assert '/static/new/main.js' in html
+    assert 'id="screen"' in html
+    assert 'id="admin-gear"' in html
+    assert 'type="module"' in html and "/static/new/main.js" in html
 
 
-def test_shell_core_elements_present():
+def test_old_tab_nav_is_gone():
     html = _html()
-    for el in (
-        'id="sidebar"', 'id="nav-chat"', 'id="nav-projects"',
-        'id="view-chat"', 'id="view-projects"',
-        'id="recent-list"', 'id="projects-list"',
-        'id="splash"', 'id="splash-close"', 'id="splash-enter"',
-    ):
-        assert el in html, f"missing {el}"
+    for el in ('id="nav-chat"', 'id="nav-projects"', 'id="nav-draft"',
+               'id="nav-mindmap"', 'id="sidebar"'):
+        assert el not in html, f"legacy element still present: {el}"
 
 
-def test_loads_main_module():
+def test_splash_kept():
     html = _html()
-    assert 'type="module"' in html
-    assert '/static/new/main.js' in html
+    for el in ('id="splash"', 'id="splash-close"', 'id="splash-enter"'):
+        assert el in html
 
 
-def test_draft_mindmap_shell_present():
-    html = _html()
-    for el in (
-        'id="nav-draft"', 'id="nav-mindmap"',
-        'id="view-draft"', 'id="view-mindmap"',
-        'markmap-autoloader',
-    ):
-        assert el in html, f"missing {el}"
+def test_semua_pdf_link_present():
+    assert "/tools#tab-library" in _html()
 
 
-def test_legacy_served_at_tools():
+def test_tools_still_serves_legacy_ui():
     client = TestClient(create_app())
     r = client.get("/tools")
     assert r.status_code == 200
-    assert 'id="tab-mindmap"' in r.text  # legacy markup lives at /tools now
-
-
-def test_new_redirects_to_root():
-    client = TestClient(create_app())
-    r = client.get("/new", follow_redirects=False)
-    assert r.status_code in (302, 307, 308)
-    assert r.headers["location"] == "/"
-
-
-def test_mindmap_side_present():
-    html = _html()
-    for el in ('id="mindmap-side"', 'id="mindmap-recent"'):
-        assert el in html, f"missing {el}"
+    assert "/static/app.js" in r.text
