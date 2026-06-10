@@ -144,6 +144,7 @@ export async function mountWorkspace(screen, pid, deps) { // deps: {history, min
 
   // ----- Matriks (ported from old projects.js) -----
   const mx = screen.querySelector('[data-panel="matriks"]');
+  let built = false;
   mx.innerHTML = `
     <div class="paper-actions">
       <button class="df-btn" id="m-build" type="button">Bangun matriks</button>
@@ -159,6 +160,7 @@ export async function mountWorkspace(screen, pid, deps) { // deps: {history, min
     mx.querySelector("#x-csv").href = `/projects/${pid}/matrix/export.csv?view=${viewSel.value}`;
   }
   mx.querySelector("#m-build").addEventListener("click", async () => {
+    built = true;
     out.textContent = "Mengekstrak matriks dari paper naskah…";
     try { out.innerHTML = matrixTable(await postJSON(`/projects/${pid}/matrix`, { view: viewSel.value })); }
     catch (e) { out.textContent = friendlyError(e); }
@@ -168,7 +170,7 @@ export async function mountWorkspace(screen, pid, deps) { // deps: {history, min
   exportLinks();
   // Show the persisted matrix on open (no re-extraction).
   getJSON(`/projects/${pid}/matrix?view=matrix`).then(res => {
-    if ((res.rows || []).length) out.innerHTML = matrixTable(res);
+    if (!built && (res.rows || []).length) out.innerHTML = matrixTable(res);
   }).catch(() => {});
 
   newConv();
