@@ -140,10 +140,8 @@ async def upload_pdf(project_id: int, file: UploadFile = File(...)) -> JSONRespo
         shutil.copyfileobj(file.file, out)
     h = file_hash(tmp)
     dest = UPLOAD_DIR / f"{h}.pdf"
-    if dest.exists():
-        tmp.unlink(missing_ok=True)
-    else:
-        tmp.rename(dest)
+    # Atomic replace: dest is hash-named so same content — overwrite is harmless.
+    tmp.replace(dest)
 
     job_id = start_upload_job(dest, project_id, file.filename or dest.name)
     return JSONResponse({"job_id": job_id}, status_code=202)

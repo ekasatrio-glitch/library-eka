@@ -46,6 +46,7 @@ def _app_client(tmp_path, monkeypatch):
 
 def _wait_job(client, job_id, timeout=10.0):
     t0 = time.time()
+    j = None
     while time.time() - t0 < timeout:
         r = client.get(f"/uploads/{job_id}")
         assert r.status_code == 200, r.text
@@ -53,7 +54,7 @@ def _wait_job(client, job_id, timeout=10.0):
         if j["finished"]:
             return j
         time.sleep(0.05)
-    raise AssertionError("upload job did not finish in time")
+    raise AssertionError(f"upload job did not finish in time; last state: {j}")
 
 
 def test_upload_returns_job_and_completes(tmp_path, monkeypatch):

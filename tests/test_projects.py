@@ -26,12 +26,13 @@ def _embed_stub(texts, model=None, base_url=None):
 def _wait_job(client, job_id, timeout=10.0):
     import time
     t0 = time.time()
+    j = None
     while time.time() - t0 < timeout:
         j = client.get(f"/uploads/{job_id}").json()
         if j["finished"]:
             return j
         time.sleep(0.05)
-    raise AssertionError("upload job did not finish in time")
+    raise AssertionError(f"upload job did not finish in time; last state: {j}")
 
 
 def _seed_two_docs(td: Path):
