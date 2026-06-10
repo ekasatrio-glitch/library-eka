@@ -38,7 +38,7 @@ Header: `← Naskah Saya | <nama naskah>`. Four inner tabs:
 | Tab | Content | Backend |
 |---|---|---|
 | 💬 **Tanya** (default) | Scoped chat over the naskah's papers. Checkbox "cari juga di luar naskah ini" (= existing `expand`). Discovery nudge shown as "paper lain yang mungkin relevan". Per-naskah conversation history in localStorage. | `POST /projects/{id}/ask` (exists) |
-| 📄 **Paper** | Paper list; drag-drop PDF upload; import from library; per-selection "🗺️ Peta konsep" button that renders a mindmap in a modal/panel. | `GET/POST /projects/{id}/papers`, `POST /projects/{id}/upload` (exist); `POST /mindmap` with `doc_ids` (exists) |
+| 📄 **Paper** | Paper list; drag-drop PDF upload with per-file progress bar (stage labels: "membaca halaman" → "mengindeks" → "selesai"); import from library; per-selection "🗺️ Peta konsep" button that renders a mindmap in a modal/panel. | `GET/POST /projects/{id}/papers` (exist); `POST /projects/{id}/upload` reworked async + `GET /uploads/{job_id}` polling; `POST /mindmap` with `doc_ids` (exists) |
 | 📝 **Draft** | Vancouver/APA paragraph drafting scoped to the naskah's papers. | `POST /draft` + **new `doc_ids` param** |
 | 📊 **Matriks** | Synthesis matrix + XLSX/CSV export, unchanged behavior. | `POST /projects/{id}/matrix`, export routes (exist) |
 
@@ -59,7 +59,18 @@ All user-facing strings in Indonesian, layperson-friendly:
 
 ## Backend Changes
 
-Exactly one: add `doc_ids: Optional[List[int]]` to `DraftRequest` in `app/web/routes.py`, pass through as `filters["doc_ids"]` to `draft_paragraph()` — `search()` already supports the filter. No DB, ingest, retrieval, or VPS-sync changes. No new endpoints.
+Two changes:
+
+1. **Draft scoping:** add `doc_ids: Optional[List[int]]` to `DraftRequest` in `app/web/routes.py`, pass through as `filters["doc_ids"]` to `draft_paragraph()` — `search()` already supports the filter.
+
+2. **Async upload with progress.** The current `POST /projects/{id}/upload` runs `ingest_pdf()` synchronously in-request (`projects_routes.py`); a 1000-page book takes minutes through Docling and the request times out. Rework using the proven background-job pattern from the admin reembed panel (`admin_routes.py`):
+   - `POST /projects/{id}/upload` → save file, register job, return `job_id` immediately.
+   - `GET /uploads/{job_id}` → `{stage, done, total, error}` for polling. Stages (Indonesian in UI): "membaca halaman" (pages extracted), "mengindeks" (chunks embedded), "selesai", "gagal: …".
+   - `ingest_pdf()` gains an optional `progress` callback parameter, same pattern as `reembed(progress=...)`. Pipeline already knows page and chunk counts.
+   - All uploads use this one path — no sync/async branching by file size.
+   - On job completion the document is linked to the naskah (hash-dedupe behavior unchanged).
+
+No DB schema, retrieval, or VPS-sync changes.
 
 ## Frontend Changes
 
@@ -86,6 +97,8 @@ The two UIs remain independent: no `/` change touches `/tools`.
 
 **Python (pytest):**
 - New: `/draft` with `doc_ids` restricts retrieval to those documents.
+- New: async upload — job registered, status polls through stages, document linked on completion, dedupe re-upload reports already-present; failure surfaces in `error`. (Pattern mirrors `test_admin_reembed.py`.)
+- New: `ingest_pdf(progress=...)` callback fires with sane done/total.
 - Updated: `tests/test_new_ui.py` — `/` serves grid UI with new structure and Indonesian labels.
 - Unchanged endpoints keep their existing tests.
 
@@ -101,12 +114,13 @@ The two UIs remain independent: no `/` change touches `/tools`.
 Each step lands green before the next:
 
 1. Backend: `doc_ids` on `/draft` + test.
-2. `history.js` per-naskah scope + tests.
-3. Beranda: naskah card list as the main screen.
-4. Ruang kerja: four inner tabs wired to existing endpoints; mindmap as Paper-tab action.
-5. Upload UI: drag-drop in Paper tab → `POST /projects/{id}/upload`.
-6. Copy pass: Indonesian labels + friendly error messages; drop "Tools lama" link from nav.
-7. Manual end-to-end verification.
+2. Backend: `ingest_pdf(progress=...)` callback + async upload job endpoints + tests.
+3. `history.js` per-naskah scope + tests.
+4. Beranda: naskah card list as the main screen.
+5. Ruang kerja: four inner tabs wired to existing endpoints; mindmap as Paper-tab action.
+6. Upload UI: drag-drop in Paper tab → async job + progress bar polling.
+7. Copy pass: Indonesian labels + friendly error messages; drop "Tools lama" link from nav.
+8. Manual end-to-end verification.
 
 ## Risks / Non-Goals
 
