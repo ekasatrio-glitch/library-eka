@@ -13,8 +13,12 @@ export async function mountBeranda(screen, { onOpen }) {
   screen.querySelector("#b-new").addEventListener("click", async () => {
     const name = prompt("Nama naskah baru:");
     if (!name || !name.trim()) return;
-    const p = await postJSON("/projects", { name: name.trim() });
-    onOpen(p.id);
+    try {
+      const p = await postJSON("/projects", { name: name.trim() });
+      onOpen(p.id);
+    } catch (e) {
+      alert(friendlyError(e));
+    }
   });
   const cards = screen.querySelector("#b-cards");
   try {

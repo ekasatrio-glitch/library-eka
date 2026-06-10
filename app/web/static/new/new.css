@@ -169,7 +169,7 @@ table.matrix th{background:var(--brand-subtle);font-weight:600}
 /* ===== naskah-centric shell (2026-06) ===== */
 .app-shell{flex-direction:column}
 .topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 20px;border-bottom:1px solid #E2E8F0;background:#fff}
-.topbar .brand{padding:0}
+.topbar .brand{padding:0;margin-bottom:0}
 .top-actions{display:flex;gap:14px;align-items:center}
 .top-link{font-size:13px;color:var(--brand);text-decoration:none}
 .gear{background:none;border:none;cursor:pointer;font-size:16px;line-height:1}
