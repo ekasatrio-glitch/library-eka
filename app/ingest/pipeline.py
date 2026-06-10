@@ -37,8 +37,16 @@ def find_pdfs(roots: Iterable[str | Path]) -> List[Path]:
     return out
 
 
-def ingest_pdf(pdf_path: str | Path, conn=None) -> tuple[bool, str]:
-    """Ingest single PDF. Returns (processed, reason)."""
+def ingest_pdf(pdf_path: str | Path, conn=None, progress=None) -> tuple[bool, str]:
+    """Ingest single PDF. Returns (processed, reason).
+
+    progress(stage, done, total) is called with stage "membaca" (extraction
+    started) then "mengindeks" (per-batch embedding) — drives the upload UI bar.
+    """
+    def report(stage: str, done: int, total: int) -> None:
+        if progress:
+            progress(stage, done, total)
+
     path = Path(pdf_path).resolve()
     if not path.exists():
         return False, f"missing: {path}"
@@ -52,6 +60,7 @@ def ingest_pdf(pdf_path: str | Path, conn=None) -> tuple[bool, str]:
         if document_exists(conn, h) is not None:
             return False, "skip (already ingested)"
 
+        report("membaca", 0, 0)
         pages = extract_pages(path)
         if not pages:
             return False, "no pages"
@@ -76,7 +85,13 @@ def ingest_pdf(pdf_path: str | Path, conn=None) -> tuple[bool, str]:
             set_document_status(conn, doc_id, "empty")
             return False, "no chunks"
 
-        embeddings = embed_texts([c.text for c in chunks])
+        texts = [c.text for c in chunks]
+        report("mengindeks", 0, len(texts))
+        embeddings: List[list] = []
+        BATCH = 8
+        for i in range(0, len(texts), BATCH):
+            embeddings.extend(embed_texts(texts[i:i + BATCH]))
+            report("mengindeks", min(i + BATCH, len(texts)), len(texts))
         for c, emb in zip(chunks, embeddings):
             insert_chunk(conn, doc_id, c.page_start, c.page_end, c.text, emb)
 

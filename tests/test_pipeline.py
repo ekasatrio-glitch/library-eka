@@ -112,3 +112,36 @@ def test_find_pdfs():
         (root / "ignore.txt").write_text("nope")
         found = find_pdfs([root])
         assert len(found) == 2
+
+
+def test_ingest_progress_callback(tmp_path, monkeypatch):
+    import fitz
+    from unittest.mock import patch
+    from app.core import config as cfg
+    from app.core.db import init_db
+    from app.ingest.pipeline import ingest_pdf
+
+    def _stub(texts, model=None, base_url=None):
+        return [[0.01] * cfg.EMBED_DIM for _ in texts]
+
+    pdf = tmp_path / "big.pdf"
+    doc = fitz.open()
+    for _ in range(4):
+        page = doc.new_page()
+        page.insert_textbox(page.rect, ("Stunting intervensi gizi balita " * 120), fontsize=9)
+    doc.save(str(pdf))
+    doc.close()
+
+    conn = init_db(str(tmp_path / "p.db"))
+    calls = []
+    with patch("app.ingest.pipeline.embed_texts", side_effect=_stub):
+        ok, reason = ingest_pdf(pdf, conn=conn,
+                                progress=lambda s, d, t: calls.append((s, d, t)))
+    conn.close()
+    assert ok, reason
+    assert calls[0][0] == "membaca"
+    idx = [c for c in calls if c[0] == "mengindeks"]
+    assert idx, "no mengindeks progress"
+    assert idx[-1][1] == idx[-1][2] > 0          # ends at done == total
+    dones = [d for _, d, _ in idx]
+    assert dones == sorted(dones)                # monotonic
