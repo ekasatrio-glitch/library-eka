@@ -114,15 +114,9 @@ def test_find_pdfs():
         assert len(found) == 2
 
 
-def test_ingest_progress_callback(tmp_path, monkeypatch):
-    import fitz
-    from unittest.mock import patch
-    from app.core import config as cfg
-    from app.core.db import init_db
-    from app.ingest.pipeline import ingest_pdf
-
+def test_ingest_progress_callback(tmp_path):
     def _stub(texts, model=None, base_url=None):
-        return [[0.01] * cfg.EMBED_DIM for _ in texts]
+        return [[0.01] * config.EMBED_DIM for _ in texts]
 
     pdf = tmp_path / "big.pdf"
     doc = fitz.open()
