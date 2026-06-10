@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import Optional
 from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parent.parent.parent
@@ -14,6 +15,11 @@ EMBED_DIM = int(os.getenv("EMBED_DIM", "1024"))
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "deepseek").lower()
+
+# Generation-model choices selectable at runtime from the admin mini-menu.
+# Each entry is "provider" or "provider:model"; the active one is persisted in
+# the meta table (key "llm_choice"). Add models here, no code change needed.
+LLM_CHOICES = [c.strip() for c in os.getenv("LLM_CHOICES", "deepseek,jatevo").split(",") if c.strip()]
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
 DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
 JATEVO_API_KEY = os.getenv("JATEVO_API_KEY", "")
@@ -37,12 +43,16 @@ RENAME_PATTERN = os.getenv("RENAME_PATTERN", "{authors} ({year}) - {title}")
 CROSSREF_ENABLED = os.getenv("CROSSREF_ENABLED", "true").lower() in ("1", "true", "yes")
 
 
-def llm_config() -> tuple[str, str, str]:
-    if LLM_PROVIDER == "jatevo":
+def llm_config(choice: Optional[str] = None) -> tuple[str, str, str]:
+    """Resolve (api_key, base_url, model). choice = "provider[:model]" overrides
+    the LLM_PROVIDER env; without a model suffix the provider's env default is used."""
+    provider, _, model = (choice or LLM_PROVIDER).partition(":")
+    provider = provider.strip().lower()
+    if provider == "jatevo":
         if not JATEVO_BASE_URL:
             raise RuntimeError(
                 "LLM_PROVIDER=jatevo but JATEVO_BASE_URL is empty — set it in .env "
                 "(empty base_url silently falls back to api.openai.com)"
             )
-        return JATEVO_API_KEY, JATEVO_BASE_URL, os.getenv("JATEVO_MODEL", "jatevo-default")
-    return DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+        return JATEVO_API_KEY, JATEVO_BASE_URL, model or os.getenv("JATEVO_MODEL", "jatevo-default")
+    return DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, model or os.getenv("DEEPSEEK_MODEL", "deepseek-chat")

@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from app.core import config
-from app.core.db import connect
+from app.core.db import connect, get_meta, set_meta
 from app.ingest.reembed import reembed
 
 router = APIRouter(prefix="/admin")
@@ -63,3 +63,29 @@ def start(req: ReembedStart) -> JSONResponse:
 @router.get("/reembed/status")
 def status() -> JSONResponse:
     return JSONResponse(dict(_job))
+
+
+class LlmSet(BaseModel):
+    choice: str
+
+
+@router.get("/llm")
+def get_llm() -> JSONResponse:
+    conn = connect()
+    try:
+        active = get_meta(conn, "llm_choice") or (config.LLM_CHOICES[0] if config.LLM_CHOICES else "")
+    finally:
+        conn.close()
+    return JSONResponse({"choices": config.LLM_CHOICES, "active": active})
+
+
+@router.post("/llm")
+def set_llm(req: LlmSet) -> JSONResponse:
+    if req.choice not in config.LLM_CHOICES:
+        raise HTTPException(status_code=422, detail=f"unknown choice: {req.choice}")
+    conn = connect()
+    try:
+        set_meta(conn, "llm_choice", req.choice)
+    finally:
+        conn.close()
+    return JSONResponse({"active": req.choice})
