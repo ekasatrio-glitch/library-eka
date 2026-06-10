@@ -71,6 +71,7 @@ All within `templates/new.html` + `static/new/*` (the `/` UI). The legacy `/tool
 - `history.js`: conversations keyed by naskah (`scope: projectId`); list filtered per scope. Existing `scope: "global"` conversations remain in localStorage but are no longer surfaced — no data loss, no migration. (Pure module — unit-tested.)
 - `projects.js`: becomes the Beranda card list + workspace shell.
 - `new.css`: styles for cards, inner tabs, upload dropzone; design tokens unchanged (sky-blue brand, Amber reserved for splash EKG).
+- Visual language stays grid.jatevo.ai-style: spacious, calm, chat column with generous whitespace. The home feature cards / question-suggestion boxes (added in `ada7e71`) are **removed** — Beranda is just the naskah list, and the Tanya tab is a clean chat column with no suggestion cards.
 
 The two UIs remain independent: no `/` change touches `/tools`.
 
