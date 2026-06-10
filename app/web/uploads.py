@@ -54,13 +54,12 @@ def _run(job_id: str, pdf_path: Path, project_id: int) -> None:
             job["already"] = True
             job["doc_id"] = existing
         else:
-            _, reason = ingest_pdf(pdf_path, conn=conn, progress=progress)
-            doc_id = document_exists(conn, h)
-            if doc_id is None:
+            ok, reason = ingest_pdf(pdf_path, conn=conn, progress=progress)
+            if not ok:
                 job["error"] = reason
                 job["stage"] = "gagal"
                 return
-            job["doc_id"] = doc_id
+            job["doc_id"] = document_exists(conn, h)
         proj.add_papers(conn, project_id, [job["doc_id"]])
         job["stage"] = "selesai"
     except Exception as e:  # surface any failure to the poller

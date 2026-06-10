@@ -99,3 +99,21 @@ def test_upload_rejects_non_pdf(tmp_path, monkeypatch):
     r = client.post(f"/projects/{pid}/upload",
                     files={"file": ("notes.txt", b"hi", "text/plain")})
     assert r.status_code == 400
+
+
+def test_upload_failed_ingest_reports_error(tmp_path, monkeypatch):
+    client, pid = _app_client(tmp_path, monkeypatch)
+    d = fitz.open()
+    d.new_page()  # blank page -> no text -> no chunks
+    out = tmp_path / "blank.pdf"
+    d.save(str(out))
+    d.close()
+    with patch("app.ingest.pipeline.embed_texts", side_effect=_embed_stub):
+        r = client.post(f"/projects/{pid}/upload",
+                        files={"file": ("blank.pdf", out.read_bytes(), "application/pdf")})
+        assert r.status_code == 202
+        job = _wait_job(client, r.json()["job_id"])
+    assert job["error"], "failed ingest must surface an error"
+    assert job["stage"] == "gagal"
+    papers = client.get(f"/projects/{pid}/papers").json()["papers"]
+    assert papers == []
