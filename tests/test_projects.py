@@ -23,6 +23,17 @@ def _embed_stub(texts, model=None, base_url=None):
     return [[0.01] * config.EMBED_DIM for _ in texts]
 
 
+def _wait_job(client, job_id, timeout=10.0):
+    import time
+    t0 = time.time()
+    while time.time() - t0 < timeout:
+        j = client.get(f"/uploads/{job_id}").json()
+        if j["finished"]:
+            return j
+        time.sleep(0.05)
+    raise AssertionError("upload job did not finish in time")
+
+
 def _seed_two_docs(td: Path):
     db = str(td / "t.db")
     conn = init_db(db)
@@ -99,10 +110,12 @@ def test_project_api_endpoints(tmp_path, monkeypatch):
     conn.close()
 
     from app.web.routes import router as core_router
+    from app.web import uploads
     from fastapi import FastAPI
     app = FastAPI()
     app.include_router(core_router)
     app.include_router(pr.router)
+    app.include_router(uploads.router)
     client = TestClient(app)
 
     r = client.post("/projects", json={"name": "Proj", "description": "d"})
@@ -114,19 +127,21 @@ def test_project_api_endpoints(tmp_path, monkeypatch):
     r = client.post(f"/projects/{pid}/papers", json={"doc_ids": [seed_id]})
     assert r.status_code == 200 and r.json()["linked"] == 1
 
-    # Upload a new PDF -> ingested into global corpus + linked.
+    # Upload a new PDF -> ingested into global corpus + linked (async job).
     pdf = tmp_path / "upload.pdf"
     _mk(pdf, "delta economics policy")
     with patch("app.ingest.pipeline.embed_texts", side_effect=_embed_stub):
         with pdf.open("rb") as fh:
             r = client.post(f"/projects/{pid}/upload", files={"file": ("upload.pdf", fh, "application/pdf")})
-    assert r.status_code == 200, r.text
-    assert len(r.json()["papers"]) == 2
+        assert r.status_code == 202, r.text
+        job = _wait_job(client, r.json()["job_id"])
+    assert job["error"] is None
+    new_doc = job["doc_id"]
+    assert len(client.get(f"/projects/{pid}/papers").json()["papers"]) == 2
 
     detail = client.get(f"/projects/{pid}").json()
     assert len(detail["papers"]) == 2
 
-    new_doc = r.json()["doc_id"]
     r = client.delete(f"/projects/{pid}/papers/{new_doc}")
     assert r.status_code == 200 and len(r.json()["papers"]) == 1
 
@@ -195,6 +210,7 @@ def test_upload_same_filename_different_content_no_clobber(tmp_path, monkeypatch
     import fitz
     import app.core.db as dbmod
     import app.web.projects_routes as pr
+    from app.web import uploads
     from app.core.db import init_db
 
     db = str(tmp_path / "u.db")
@@ -209,7 +225,7 @@ def test_upload_same_filename_different_content_no_clobber(tmp_path, monkeypatch
         out = tmp_path / "tmp.pdf"; d.save(str(out)); d.close()
         return out.read_bytes()
 
-    app = FastAPI(); app.include_router(pr.router)
+    app = FastAPI(); app.include_router(pr.router); app.include_router(uploads.router)
     client = TestClient(app)
 
     a = mkbytes("CONTENT ALPHA aaa unique")
@@ -217,7 +233,9 @@ def test_upload_same_filename_different_content_no_clobber(tmp_path, monkeypatch
     with patch("app.ingest.pipeline.embed_texts", side_effect=_embed_stub):
         r1 = client.post(f"/projects/{pid}/upload", files={"file": ("paper.pdf", a, "application/pdf")})
         r2 = client.post(f"/projects/{pid}/upload", files={"file": ("paper.pdf", b, "application/pdf")})
-    d1, d2 = r1.json()["doc_id"], r2.json()["doc_id"]
+        j1 = _wait_job(client, r1.json()["job_id"])
+        j2 = _wait_job(client, r2.json()["job_id"])
+    d1, d2 = j1["doc_id"], j2["doc_id"]
     assert d1 != d2  # distinct documents, no clobber
 
     c = init_db(db)
@@ -237,6 +255,7 @@ def test_upload_identical_content_dedups(tmp_path, monkeypatch):
     import fitz
     import app.core.db as dbmod
     import app.web.projects_routes as pr
+    from app.web import uploads
     from app.core.db import init_db
 
     db = str(tmp_path / "u2.db")
@@ -248,11 +267,15 @@ def test_upload_identical_content_dedups(tmp_path, monkeypatch):
     out = tmp_path / "s.pdf"; d.save(str(out)); d.close()
     data = out.read_bytes()
 
-    app = FastAPI(); app.include_router(pr.router); client = TestClient(app)
+    app = FastAPI(); app.include_router(pr.router); app.include_router(uploads.router)
+    client = TestClient(app)
     with patch("app.ingest.pipeline.embed_texts", side_effect=_embed_stub):
         r1 = client.post(f"/projects/{pid}/upload", files={"file": ("a.pdf", data, "application/pdf")})
         r2 = client.post(f"/projects/{pid}/upload", files={"file": ("b.pdf", data, "application/pdf")})
-    assert r1.json()["doc_id"] == r2.json()["doc_id"]  # deduped by hash
+        j1 = _wait_job(client, r1.json()["job_id"])
+        j2 = _wait_job(client, r2.json()["job_id"])
+    assert j1["doc_id"] == j2["doc_id"]  # deduped by hash
+    assert j2["already"] is True
     c = init_db(db)
     assert c.execute("SELECT COUNT(*) FROM documents").fetchone()[0] == 1
     c.close()

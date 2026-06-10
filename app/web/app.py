@@ -8,6 +8,7 @@ from app.web.routes import router
 from app.web.projects_routes import router as projects_router
 from app.web.rename_routes import router as rename_router
 from app.web.admin_routes import router as admin_router
+from app.web.uploads import router as uploads_router
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
@@ -21,6 +22,7 @@ def create_app() -> FastAPI:
     app.include_router(projects_router)
     app.include_router(rename_router)
     app.include_router(admin_router)
+    app.include_router(uploads_router)
     return app
 
 

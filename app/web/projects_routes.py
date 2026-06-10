@@ -10,9 +10,10 @@ from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 
 from app.core.config import PROJECTS_DIR, ROOT
-from app.core.db import connect, document_exists
+from app.core.db import connect
 from app.core import projects as proj
-from app.ingest.pipeline import file_hash, ingest_pdf
+from app.ingest.pipeline import file_hash
+from app.web.uploads import start_upload_job
 
 router = APIRouter(prefix="/projects")
 
@@ -117,43 +118,35 @@ def add_from_library(project_id: int, req: AddPapers) -> JSONResponse:
         conn.close()
 
 
-@router.post("/{project_id}/upload")
+@router.post("/{project_id}/upload", status_code=202)
 async def upload_pdf(project_id: int, file: UploadFile = File(...)) -> JSONResponse:
-    """Drop a new PDF: ingest into the GLOBAL corpus once (dedup by hash), link to project."""
+    """Save the PDF, then ingest in a background job. Poll GET /uploads/{job_id}."""
     conn = connect()
     try:
         if not proj.get_project(conn, project_id):
             raise HTTPException(404, "project not found")
-        if not (file.filename or "").lower().endswith(".pdf"):
-            raise HTTPException(400, "only .pdf accepted")
-
-        UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-        # Name the stored file by content hash, NOT the client filename: two
-        # different PDFs sharing a filename would otherwise overwrite each other
-        # on disk and (via upsert-by-path) clobber the first document's registry
-        # row. Hash naming also dedups identical re-uploads to the same path.
-        tmp = UPLOAD_DIR / f".incoming-{uuid.uuid4().hex}.pdf"
-        with tmp.open("wb") as out:
-            shutil.copyfileobj(file.file, out)
-        h = file_hash(tmp)
-        dest = UPLOAD_DIR / f"{h}.pdf"
-        if dest.exists():
-            tmp.unlink(missing_ok=True)
-        else:
-            tmp.rename(dest)
-
-        # Ingest into global corpus (idempotent: skips if hash already present).
-        processed, reason = ingest_pdf(dest, conn=conn)
-        doc_id = document_exists(conn, h)
-        if doc_id is None:
-            raise HTTPException(422, f"ingest failed: {reason}")
-        proj.add_papers(conn, project_id, [doc_id])
-        return JSONResponse(
-            {"doc_id": doc_id, "ingested": processed, "reason": reason,
-             "papers": proj.list_papers(conn, project_id)}
-        )
     finally:
         conn.close()
+    if not (file.filename or "").lower().endswith(".pdf"):
+        raise HTTPException(400, "only .pdf accepted")
+
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    # Name the stored file by content hash, NOT the client filename: two
+    # different PDFs sharing a filename would otherwise overwrite each other
+    # on disk and (via upsert-by-path) clobber the first document's registry
+    # row. Hash naming also dedups identical re-uploads to the same path.
+    tmp = UPLOAD_DIR / f".incoming-{uuid.uuid4().hex}.pdf"
+    with tmp.open("wb") as out:
+        shutil.copyfileobj(file.file, out)
+    h = file_hash(tmp)
+    dest = UPLOAD_DIR / f"{h}.pdf"
+    if dest.exists():
+        tmp.unlink(missing_ok=True)
+    else:
+        tmp.rename(dest)
+
+    job_id = start_upload_job(dest, project_id, file.filename or dest.name)
+    return JSONResponse({"job_id": job_id}, status_code=202)
 
 
 @router.post("/{project_id}/ask")
