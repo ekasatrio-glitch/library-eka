@@ -1,47 +1,39 @@
 // Chat surface. mountChat(container, opts) renders an empty state + thread + input.
-// opts: { endpoint(question)->Promise(result), examples:[string], showNudge:bool,
+// opts: { endpoint(question, {expand})->Promise(result), examples:[string],
+//         placeholder:string, emptyTitle:string, emptyText:string,
+//         showNudge:bool, expandToggle:bool,
 //         initial:[{q,a,citations}], onExchange(messages), onAddPaper(docId) }
-// Keeps an internal messages[] log; calls onExchange(messages) after each answer
-// so the caller (main.js) can persist the whole conversation to history.
-import { escapeHtml } from "./api.js";
+import { escapeHtml, friendlyError } from "./api.js";
 import { renderAnswerHtml } from "./citations.js";
 
-// Home (global chat) empty state: feature cards that link to the app surfaces.
-// Project chat passes examples:[] and keeps the (chip-based) example layout.
-const HOME_CARDS = [
-  { go: "chat", icon: "💬", title: "Tanya korpus", desc: "Jawaban presisi dengan sitasi klik-ke-halaman" },
-  { go: "draft", icon: "📝", title: "Draft akademik", desc: "Paragraf Vancouver/APA lengkap dengan referensi" },
-  { go: "mindmap", icon: "🗺️", title: "Mindmap", desc: "Peta topik bercabang dari korpus" },
-  { go: "projects", icon: "📁", title: "Proyek", desc: "Kelompokkan paper jadi koleksi terscope" },
-];
-
 export function mountChat(container, opts) {
-  // opts.examples undefined → global home (feature cards); [] or list → example chips.
-  const isHome = opts.examples === undefined;
   const examples = opts.examples || [];
-  const egHtml = isHome
-    ? `<div class="eg cards">${HOME_CARDS.map(c =>
-        `<button class="fcard" type="button" data-go="${c.go}"><span class="fc-ic">${c.icon}</span><b>${escapeHtml(c.title)}</b><small>${escapeHtml(c.desc)}</small></button>`).join("")}</div>`
-    : `<div class="eg">${examples.map(e => `<button class="ecard" type="button">${escapeHtml(e)}</button>`).join("")}</div>`;
+  const egHtml = examples.length
+    ? `<div class="eg">${examples.map(e => `<button class="ecard" type="button">${escapeHtml(e)}</button>`).join("")}</div>`
+    : "";
+  const expandHtml = opts.expandToggle
+    ? `<label class="expand-row"><input type="checkbox" id="expand"> cari juga di luar naskah ini</label>`
+    : "";
   container.innerHTML = `
     <div class="scroll"><div class="inner" id="thread">
       <div class="empty" id="empty">
-        <h1>library-eka</h1>
-        <p>Tanya apa saja ke korpusmu. Jawaban presisi dengan sitasi klik-ke-halaman.</p>
+        <h1>${escapeHtml(opts.emptyTitle || "Tanya")}</h1>
+        <p>${escapeHtml(opts.emptyText || "Tanya apa saja. Jawaban disertai sumber yang bisa diklik ke halaman PDF.")}</p>
         ${egHtml}
       </div>
     </div></div>
     <div class="input"><div class="input-in">
-      <textarea id="q" rows="1" placeholder="Tanya korpus… (Enter kirim · Shift+Enter baris baru)"></textarea>
+      <textarea id="q" rows="1" placeholder="${escapeHtml(opts.placeholder || "Tulis pertanyaan… (Enter kirim · Shift+Enter baris baru)")}"></textarea>
       <button class="send" id="send" type="button" aria-label="Kirim">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
       </button>
-    </div></div>`;
+    </div>${expandHtml}</div>`;
 
   const thread = container.querySelector("#thread");
   let empty = container.querySelector("#empty");
   const ta = container.querySelector("#q");
   const send = container.querySelector("#send");
+  const expandCb = container.querySelector("#expand");
   const messages = [];
 
   function clearEmpty() { if (empty) { empty.remove(); empty = null; } }
@@ -62,8 +54,8 @@ export function mountChat(container, opts) {
   }
   function nudgeHtml(nudge) {
     if (!opts.showNudge || !(nudge || []).length) return "";
-    return `<div class="nudge">${nudge.length} paper lain mungkin relevan: ` +
-      nudge.map(n => `<button data-add="${n.doc_id}" type="button">+ ${escapeHtml(n.title || "(untitled)")}</button>`).join("") +
+    return `<div class="nudge">${nudge.length} paper lain yang mungkin relevan: ` +
+      nudge.map(n => `<button data-add="${n.doc_id}" type="button">+ ${escapeHtml(n.title || "(tanpa judul)")}</button>`).join("") +
       `</div>`;
   }
 
@@ -75,20 +67,19 @@ export function mountChat(container, opts) {
     bubbleUser(q);
     const pending = bubbleAI("…");
     try {
-      const res = await opts.endpoint(q);
+      const res = await opts.endpoint(q, { expand: !!(expandCb && expandCb.checked) });
       pending.innerHTML = renderAnswerHtml(res.answer, res.citations || []) + nudgeHtml(res.nudge);
       pending.querySelectorAll("button[data-add]").forEach(b =>
         b.addEventListener("click", () => { opts.onAddPaper && opts.onAddPaper(Number(b.dataset.add)); b.remove(); }));
       messages.push({ q, a: res.answer, citations: res.citations || [] });
       if (opts.onExchange) opts.onExchange(messages);
     } catch (err) {
-      pending.textContent = "Error: " + err.message;
+      pending.textContent = friendlyError(err);
     }
     const sc = container.querySelector(".scroll");
     sc.scrollTop = sc.scrollHeight;
   }
 
-  // Replay a saved conversation, if provided.
   (opts.initial || []).forEach(m => {
     clearEmpty();
     bubbleUser(m.q);
@@ -102,11 +93,4 @@ export function mountChat(container, opts) {
   });
   container.querySelectorAll(".ecard").forEach(c =>
     c.addEventListener("click", () => { ta.value = c.textContent; submit(); }));
-  container.querySelectorAll(".fcard").forEach(c =>
-    c.addEventListener("click", () => {
-      const go = c.dataset.go;
-      if (go === "chat") { ta.focus(); return; }
-      const nav = document.getElementById("nav-" + go);
-      if (nav) nav.click();
-    }));
 }

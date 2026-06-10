@@ -1,12 +1,12 @@
 // Draft view: academic paragraph (Vancouver/APA) with cite-pills + split references.
-import { escapeHtml, postJSON } from "./api.js";
+import { escapeHtml, postJSON, friendlyError } from "./api.js";
 import { pillsForAnswer } from "./citations.js";
 
-export function mountDraft(viewEl) {
+export function mountDraft(viewEl, opts = {}) {
   viewEl.innerHTML = `
     <div class="scroll"><div class="inner">
       <form id="df-form" class="df-form">
-        <textarea id="df-topic" rows="3" placeholder="Topik paragraf akademik…"></textarea>
+        <textarea id="df-topic" rows="3" placeholder="Topik paragraf akademik dari paper naskah ini…"></textarea>
         <div class="df-row">
           <select id="df-style">
             <option value="vancouver">Vancouver</option>
@@ -45,12 +45,15 @@ export function mountDraft(viewEl) {
     para.innerHTML = `<div class="ai">Menulis draft…</div>`;
     refsEl.innerHTML = "";
     try {
-      const res = await postJSON("/draft", { topic: t, style });
+      const body = { topic: t, style };
+      const ids = opts.getDocIds ? opts.getDocIds() : [];
+      if (ids && ids.length) body.doc_ids = ids;
+      const res = await postJSON("/draft", body);
       const markerStyle = style === "vancouver" ? "paren" : "square";
       para.innerHTML = `<div class="ai">${pillsForAnswer(res.paragraph, res.citations || [], markerStyle)}</div>`;
       refsEl.innerHTML = refsHtml(res.references || [], res.citations || []);
     } catch (err) {
-      para.innerHTML = `<div class="ai">Error: ${escapeHtml(err.message)}</div>`;
+      para.innerHTML = `<div class="ai">${escapeHtml(friendlyError(err))}</div>`;
     }
   }
 
