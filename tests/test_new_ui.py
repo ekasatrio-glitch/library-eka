@@ -40,3 +40,10 @@ def test_tools_still_serves_legacy_ui():
     r = client.get("/tools")
     assert r.status_code == 200
     assert "/static/app.js" in r.text
+
+
+def test_new_redirects_to_root():
+    client = TestClient(create_app())
+    r = client.get("/new", follow_redirects=False)
+    assert r.status_code in (301, 302, 307, 308)
+    assert r.headers["location"] == "/"
