@@ -45,3 +45,19 @@ test('tolerates corrupt storage value', () => {
   s.setItem('libeka.conversations', 'not json');
   assert.deepEqual(makeHistory(s).list(), []);
 });
+
+test('list(scope) filters by scope', () => {
+  const h = makeHistory(fakeStorage());
+  h.save({ id: 'a', title: 'g', scope: 'global', messages: [], updatedAt: 1 });
+  h.save({ id: 'b', title: 'p1', scope: '7', messages: [], updatedAt: 2 });
+  h.save({ id: 'c', title: 'p2', scope: '7', messages: [], updatedAt: 3 });
+  assert.deepEqual(h.list('7').map(c => c.id), ['c', 'b']);
+  assert.deepEqual(h.list('global').map(c => c.id), ['a']);
+});
+
+test('list() without scope returns everything', () => {
+  const h = makeHistory(fakeStorage());
+  h.save({ id: 'a', title: 'g', scope: 'global', messages: [], updatedAt: 1 });
+  h.save({ id: 'b', title: 'p', scope: '7', messages: [], updatedAt: 2 });
+  assert.equal(h.list().length, 2);
+});

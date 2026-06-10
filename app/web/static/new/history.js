@@ -16,8 +16,9 @@ export function makeHistory(storage) {
     storage.setItem(KEY, JSON.stringify(arr));
   }
   return {
-    list() {
-      return readAll().slice().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    list(scope) {
+      const all = readAll().slice().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+      return scope === undefined ? all : all.filter(c => c.scope === scope);
     },
     get(id) {
       return readAll().find(c => c.id === id) || null;
