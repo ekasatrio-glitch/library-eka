@@ -61,6 +61,7 @@ class DraftRequest(BaseModel):
     style: str = Field("vancouver", pattern="^(vancouver|apa)$")
     year_min: Optional[int] = None
     year_max: Optional[int] = None
+    doc_ids: Optional[List[int]] = None
 
 
 @router.post("/draft")
@@ -71,6 +72,8 @@ def post_draft(req: DraftRequest) -> JSONResponse:
         filters["year_min"] = req.year_min
     if req.year_max is not None:
         filters["year_max"] = req.year_max
+    if req.doc_ids:
+        filters["doc_ids"] = req.doc_ids
     try:
         out = draft_paragraph(req.topic, style=req.style, top_k=req.top_k, filters=filters or None)
     except RuntimeError as e:
