@@ -114,7 +114,9 @@ def crossref_lookup(query: str, timeout: float = 6.0) -> Optional[Dict[str, Any]
             if parts and parts[0] and parts[0][0]:
                 year = parts[0][0]
                 break
-        return {"title": title, "authors": authors, "year": year}
+        doi = it.get("DOI") or None
+        url = (f"https://doi.org/{doi}" if doi else None)
+        return {"title": title, "authors": authors, "year": year, "doi": doi, "url": url}
     except Exception:
         return None
 
