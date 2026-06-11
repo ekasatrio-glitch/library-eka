@@ -1254,7 +1254,6 @@ function getViz() {
 
 export function mountFramework(panel, pid, deps = {}) {
   let citations = {};
-  let lastSvg = "";
 
   panel.innerHTML = `
     <div class="kt">
@@ -1373,7 +1372,6 @@ export function mountFramework(panel, pid, deps = {}) {
     const svg = viz.renderSVGElement(dot);
     diagramEl.innerHTML = "";
     diagramEl.appendChild(svg);
-    lastSvg = diagramEl.innerHTML;
     pngBtn.disabled = false;
     overlayBadges(parsed);
     renderSources(parsed);
