@@ -655,10 +655,13 @@ def build_framework(
                 "title": getattr(hit, "title", None) or "",
                 "quote": "",
             }
+            # Insert the mediator into the path: dari -> label -> ke (not a single
+            # edge bypassing the node, which would orphan the [latar*] mediator).
             frm = str(item.get("dari") or src_var).strip()
             to = str(item.get("ke") or terikat).strip()
             rel = _reltype(item.get("relasi"))
-            edges.append((frm, to, rel))
+            edges.append((frm, label, rel))
+            edges.append((label, to, rel))
 
     # --- External latar factors, verified via Crossref ---
     proposals = _parse_json(chat_fn(EXTERNAL_SYS, _external_prompt(diteliti))) or []
