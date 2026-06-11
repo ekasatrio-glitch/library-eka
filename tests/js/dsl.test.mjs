@@ -84,3 +84,8 @@ test('slug is deterministic and reversible-enough for distinct labels', () => {
   assert.equal(slug('↑ ROS'), slug('↑ ROS'));
   assert.notEqual(slug('A'), slug('B'));
 });
+
+test('slug never starts with a digit (valid CSS/HTML id)', () => {
+  assert.match(slug('1 Inflamasi'), /^[A-Za-z_]/);
+  assert.equal(slug('1 Inflamasi'), slug('1 Inflamasi')); // still deterministic
+});

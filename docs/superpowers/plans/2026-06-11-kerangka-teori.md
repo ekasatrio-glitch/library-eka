@@ -1067,6 +1067,9 @@ export function slug(label) {
   for (const ch of String(label)) {
     out += /[A-Za-z0-9]/.test(ch) ? ch : "_" + ch.codePointAt(0).toString(16);
   }
+  // A CSS/HTML id must not start with a digit (the cssEscape fallback in
+  // framework.js doesn't encode that) — prefix so querySelector never throws.
+  if (/^[0-9]/.test(out)) out = "n" + out;
   return out || "_empty";
 }
 
@@ -1249,6 +1252,7 @@ function getViz() {
     };
     tryLoad(0);
   });
+  _vizPromise.catch(() => { _vizPromise = null; });
   return _vizPromise;
 }
 
@@ -1449,6 +1453,7 @@ export function mountFramework(panel, pid, deps = {}) {
         URL.revokeObjectURL(a.href);
       }, "image/png");
     };
+    img.onerror = () => URL.revokeObjectURL(blobUrl);
     img.src = blobUrl;
   });
 

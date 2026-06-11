@@ -6,8 +6,10 @@ import { parseDSL, dslToDot, slug } from "./dsl.js";
 
 let _vizPromise = null;
 function getViz() {
-  // viz.js (window.Viz) is loaded async from CDN; retry once if not ready.
+  // viz.js (window.Viz) is loaded async from CDN; retry until ready.
   if (_vizPromise) return _vizPromise;
+  // Clear the cache on failure so a later render can retry once the CDN script
+  // finishes loading — otherwise a slow first load would stick "belum siap".
   _vizPromise = new Promise((resolve, reject) => {
     const tryLoad = (attempt) => {
       if (window.Viz && window.Viz.instance) {
@@ -20,6 +22,7 @@ function getViz() {
     };
     tryLoad(0);
   });
+  _vizPromise.catch(() => { _vizPromise = null; });
   return _vizPromise;
 }
 
@@ -220,6 +223,7 @@ export function mountFramework(panel, pid, deps = {}) {
         URL.revokeObjectURL(a.href);
       }, "image/png");
     };
+    img.onerror = () => URL.revokeObjectURL(blobUrl);
     img.src = blobUrl;
   });
 
