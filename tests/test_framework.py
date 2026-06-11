@@ -213,3 +213,58 @@ def test_load_framework_none_after_project_delete():
         proj.delete_project(conn, pid)
         assert framework.load_framework(conn, pid) is None
         conn.close()
+
+
+def _client(monkeypatch, td):
+    db = str(Path(td) / "web.db")
+    from app.core import config as cfg
+    monkeypatch.setattr(cfg, "DB_PATH", db)
+    import app.core.db as dbmod
+    monkeypatch.setattr(dbmod, "DB_PATH", db)
+    from fastapi.testclient import TestClient
+    from app.web.app import create_app
+    return TestClient(create_app()), db
+
+
+def test_endpoint_parse_title_422_on_empty(monkeypatch):
+    with tempfile.TemporaryDirectory() as td:
+        client, _ = _client(monkeypatch, td)
+        from app.core.db import connect
+        conn = connect(); pid = proj.create_project(conn, "P"); conn.close()
+        r = client.post(f"/projects/{pid}/framework/parse-title", json={"title": ""})
+        assert r.status_code == 422
+
+
+def test_endpoint_parse_title_ok(monkeypatch):
+    with tempfile.TemporaryDirectory() as td:
+        client, _ = _client(monkeypatch, td)
+        from app.core.db import connect
+        conn = connect(); pid = proj.create_project(conn, "P"); conn.close()
+        with patch("app.rag.framework.chat", lambda s, u: json.dumps(
+                {"bebas": ["A"], "terikat": "B", "populasi": "P"})):
+            r = client.post(f"/projects/{pid}/framework/parse-title", json={"title": "judul"})
+        assert r.status_code == 200
+        assert r.json()["variables"]["terikat"] == "B"
+
+
+def test_endpoint_build_400_without_papers(monkeypatch):
+    with tempfile.TemporaryDirectory() as td:
+        client, _ = _client(monkeypatch, td)
+        from app.core.db import connect
+        conn = connect(); pid = proj.create_project(conn, "P"); conn.close()
+        r = client.post(f"/projects/{pid}/framework",
+                        json={"variables": _vars(), "title": "judul"})
+        assert r.status_code == 400
+        assert "naskah tanpa paper" in r.json()["detail"]
+
+
+def test_endpoint_get_empty_is_not_404(monkeypatch):
+    with tempfile.TemporaryDirectory() as td:
+        client, _ = _client(monkeypatch, td)
+        from app.core.db import connect
+        conn = connect(); pid = proj.create_project(conn, "P"); conn.close()
+        r = client.get(f"/projects/{pid}/framework")
+        assert r.status_code == 200
+        body = r.json()
+        assert body == {"dsl": "", "citations": {}, "variables": {},
+                        "title": "", "updated_at": None}

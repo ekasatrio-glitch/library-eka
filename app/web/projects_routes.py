@@ -192,6 +192,15 @@ class MatrixRequest(BaseModel):
     overrides: Dict[int, str] = Field(default_factory=dict)  # doc_id -> forced schema
 
 
+class ParseTitleRequest(BaseModel):
+    title: str = Field("", min_length=0)
+
+
+class FrameworkRequest(BaseModel):
+    variables: Dict[str, Any] = Field(default_factory=dict)
+    title: str = ""
+
+
 @router.post("/{project_id}/matrix")
 def post_matrix(project_id: int, req: MatrixRequest) -> JSONResponse:
     """Build (extract + persist) the synthesis matrix for the project, grounded."""
@@ -267,6 +276,62 @@ def export_xlsx(project_id: int, view: str = "matrix") -> Response:
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="matrix-{project_id}-{view}.xlsx"'},
     )
+
+
+@router.post("/{project_id}/framework/parse-title")
+def framework_parse_title(project_id: int, req: ParseTitleRequest) -> JSONResponse:
+    from app.rag.framework import parse_title
+
+    if not (req.title or "").strip():
+        raise HTTPException(422, "title kosong")
+    conn = connect()
+    try:
+        if not proj.get_project(conn, project_id):
+            raise HTTPException(404, "project not found")
+        try:
+            variables = parse_title(req.title)
+        except RuntimeError as e:  # missing LLM key etc.
+            raise HTTPException(503, str(e))
+        return JSONResponse({"variables": variables})
+    finally:
+        conn.close()
+
+
+@router.post("/{project_id}/framework")
+def framework_build(project_id: int, req: FrameworkRequest) -> JSONResponse:
+    from app.rag.framework import build_framework
+
+    conn = connect()
+    try:
+        if not proj.get_project(conn, project_id):
+            raise HTTPException(404, "project not found")
+        variables = dict(req.variables)
+        variables["title"] = req.title
+        try:
+            out = build_framework(conn, project_id, variables)
+        except ValueError as e:  # naskah tanpa paper
+            raise HTTPException(400, str(e))
+        except RuntimeError as e:
+            raise HTTPException(503, str(e))
+        return JSONResponse(out)
+    finally:
+        conn.close()
+
+
+@router.get("/{project_id}/framework")
+def framework_get(project_id: int) -> JSONResponse:
+    from app.rag.framework import load_framework
+
+    conn = connect()
+    try:
+        if not proj.get_project(conn, project_id):
+            raise HTTPException(404, "project not found")
+        out = load_framework(conn, project_id)
+        if out is None:
+            out = {"dsl": "", "citations": {}, "variables": {}, "title": "", "updated_at": None}
+        return JSONResponse(out)
+    finally:
+        conn.close()
 
 
 class CodebookSet(BaseModel):
