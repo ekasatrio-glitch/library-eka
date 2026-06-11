@@ -168,3 +168,23 @@ table.matrix th{background:var(--brand-subtle);font-weight:600}
 .upload-bar{flex:1;height:8px;background:#E2E8F0;border-radius:4px;overflow:hidden}
 .upload-bar i{display:block;height:100%;background:var(--brand);width:0;transition:width .3s}
 .mm-wide{width:min(860px,92vw)}
+
+/* ---- Kerangka teori tab ---- */
+.kt-setup { padding: 16px 20px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.kt-setup #kt-title { flex: 1 1 360px; padding: 8px 12px; border: 1px solid var(--line, #e2e8f0); border-radius: 8px; font: inherit; }
+.kt-vargroup { width: 100%; margin: 8px 0; }
+.kt-vargroup label, .kt-field { display: block; margin: 4px 0; }
+.kt-field input { margin-left: 6px; padding: 4px 8px; border: 1px solid var(--line, #e2e8f0); border-radius: 6px; }
+.kt-main { display: grid; grid-template-columns: 1fr 360px; gap: 12px; padding: 0 20px 20px; }
+.kt-diagram { overflow: auto; border: 1px solid var(--line, #e2e8f0); border-radius: 8px; min-height: 320px; position: relative; background: #fff; }
+.kt-diagram svg { max-width: none; }
+.kt-side { display: flex; flex-direction: column; gap: 8px; }
+.kt-side #kt-dsl { width: 100%; min-height: 240px; font-family: "Fira Code", monospace; font-size: 13px; border: 1px solid var(--line, #e2e8f0); border-radius: 8px; padding: 10px; resize: vertical; }
+.kt-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.kt-err { color: #c0392b; font-size: 13px; padding: 2px 0; }
+.kt-src { font-size: 13px; padding: 4px 0; border-bottom: 1px solid var(--line, #f1f5f9); }
+.kt-tag { font-size: 11px; padding: 1px 6px; border-radius: 10px; }
+.kt-tag.perlu { background: #fef3c7; color: #92400e; }
+.kt-tag.tak { background: #fee2e2; color: #991b1b; }
+.kt-badge { display: inline-block; margin-left: 2px; font-size: 13px; }
+.kt-badge.tak { filter: grayscale(0); }

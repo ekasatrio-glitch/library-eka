@@ -655,10 +655,13 @@ def build_framework(
                 "title": getattr(hit, "title", None) or "",
                 "quote": "",
             }
+            # Insert the mediator into the path: dari -> label -> ke (not a single
+            # edge bypassing the node, which would orphan the [latar*] mediator).
             frm = str(item.get("dari") or src_var).strip()
             to = str(item.get("ke") or terikat).strip()
             rel = _reltype(item.get("relasi"))
-            edges.append((frm, to, rel))
+            edges.append((frm, label, rel))
+            edges.append((label, to, rel))
 
     # --- External latar factors, verified via Crossref ---
     proposals = _parse_json(chat_fn(EXTERNAL_SYS, _external_prompt(diteliti))) or []
@@ -1064,6 +1067,9 @@ export function slug(label) {
   for (const ch of String(label)) {
     out += /[A-Za-z0-9]/.test(ch) ? ch : "_" + ch.codePointAt(0).toString(16);
   }
+  // A CSS/HTML id must not start with a digit (the cssEscape fallback in
+  // framework.js doesn't encode that) — prefix so querySelector never throws.
+  if (/^[0-9]/.test(out)) out = "n" + out;
   return out || "_empty";
 }
 
@@ -1246,12 +1252,12 @@ function getViz() {
     };
     tryLoad(0);
   });
+  _vizPromise.catch(() => { _vizPromise = null; });
   return _vizPromise;
 }
 
 export function mountFramework(panel, pid, deps = {}) {
   let citations = {};
-  let lastSvg = "";
 
   panel.innerHTML = `
     <div class="kt">
@@ -1370,7 +1376,6 @@ export function mountFramework(panel, pid, deps = {}) {
     const svg = viz.renderSVGElement(dot);
     diagramEl.innerHTML = "";
     diagramEl.appendChild(svg);
-    lastSvg = diagramEl.innerHTML;
     pngBtn.disabled = false;
     overlayBadges(parsed);
     renderSources(parsed);
@@ -1448,6 +1453,7 @@ export function mountFramework(panel, pid, deps = {}) {
         URL.revokeObjectURL(a.href);
       }, "image/png");
     };
+    img.onerror = () => URL.revokeObjectURL(blobUrl);
     img.src = blobUrl;
   });
 

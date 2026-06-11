@@ -88,6 +88,19 @@ CREATE TABLE IF NOT EXISTS project_matrix (
     FOREIGN KEY (doc_id) REFERENCES documents(id) ON DELETE CASCADE
 );
 
+-- Persisted theoretical-framework diagram: one row per project. `dsl` is the
+-- editable source-of-truth; `citations` maps node label -> source (corpus or
+-- external/Crossref); `variables` holds the confirmed {bebas,terikat,populasi}.
+-- 1-to-1 with projects; project_id doubles as PK (hence inline FK, not a clause).
+CREATE TABLE IF NOT EXISTS project_framework (
+    project_id INTEGER PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
+    title      TEXT NOT NULL DEFAULT '',
+    dsl        TEXT NOT NULL DEFAULT '',
+    citations  TEXT NOT NULL DEFAULT '{}',
+    variables  TEXT NOT NULL DEFAULT '{}',
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- Undo log for title-based renames (Phase 14). One row per applied rename.
 CREATE TABLE IF NOT EXISTS rename_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

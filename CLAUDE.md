@@ -54,7 +54,7 @@ Hybrid: dense (sqlite-vec KNN) + sparse (FTS5/BM25) fused with RRF (k=60), then 
 FastAPI app in `app.py`; routes split into `routes.py` (ask/draft/mindmap/library/pdf/viewer + `/new`), `projects_routes.py` (scoped chat with `expand` + discovery nudge), `rename_routes.py`, `export.py` (XLSX/CSV with codebook coloring).
 
 Two front-ends:
-- **Grid-style** `/` (`templates/new.html` + `static/new/*`) — naskah-centric two-screen UI: Beranda (naskah card list) → Ruang Kerja with inner tabs Tanya (scoped chat + expand checkbox + per-naskah localStorage history), Paper (async upload with progress polling via `/uploads/{job_id}`, import picker, peta-konsep modal), Draft (doc_ids-scoped), Matriks (+ export). Modules: `api.js`/`history.js`/`upload.js`/`citations.js`/`mindmaps.js`/`splash.js` are pure & unit-tested; `main/beranda/workspace/papers/picker/mindmap/chat/draft/admin` are DOM views verified manually. ⚙ gear = runtime LLM switcher (`/admin/llm`, persisted in `meta.llm_choice`).
+- **Grid-style** `/` (`templates/new.html` + `static/new/*`) — naskah-centric two-screen UI: Beranda (naskah card list) → Ruang Kerja with inner tabs Tanya (scoped chat + expand checkbox + per-naskah localStorage history), Paper (async upload with progress polling via `/uploads/{job_id}`, import picker, peta-konsep modal), Draft (doc_ids-scoped), Matriks (+ export), Kerangka (theoretical-framework diagram: title → grounded causal graph, editable DSL → viz.js SVG, PNG export). Modules: `api.js`/`history.js`/`upload.js`/`citations.js`/`mindmaps.js`/`splash.js` are pure & unit-tested; `main/beranda/workspace/papers/picker/mindmap/chat/draft/admin` are DOM views verified manually. ⚙ gear = runtime LLM switcher (`/admin/llm`, persisted in `meta.llm_choice`).
 - **Legacy** `/tools` (`templates/index.html` + `static/app.js`) — all five tabs + admin reembed panel. Unchanged; reachable by direct URL only (no nav link).
 
 Design tokens for `/new` live in `static/new/new.css` (`:root` vars: sky-blue `--brand:#0369A1`, Inter/Merriweather/Fira Code, `--accent:#D97706` Amber 600 reserved for the splash EKG only). See spec `docs/superpowers/specs/2026-06-04-grid-style-ui-design.md`.
@@ -62,6 +62,12 @@ Design tokens for `/new` live in `static/new/new.css` (`:root` vars: sky-blue `-
 ### Projects
 
 Corpus stays global; a project only references documents (`project_documents`) — no duplication, no re-embed. Imported PDFs deduped by hash.
+
+A project may also hold one **kerangka teori** (theoretical-framework diagram):
+`app/rag/framework.py` builds a grounded causal graph from a research title —
+corpus nodes cited to doc_id+page, external nodes verified via Crossref — stored
+as an editable DSL in `project_framework` (one row per project). The browser
+compiles DSL → DOT (`dsl.js`) → SVG (viz.js) and exports PNG (`framework.js`).
 
 ### Rename (`app/ingest/rename.py`, `title.py`)
 

@@ -152,3 +152,42 @@ def test_retitle_document_updates_registry():
         assert row[0] == "The Real Paper Title"
         assert row[1] == "Jane Doe; John Roe" and row[2] == 2021
         conn.close()
+
+
+def test_crossref_lookup_includes_doi_and_url():
+    from unittest.mock import patch, MagicMock
+    from app.ingest.title import crossref_lookup
+
+    fake_json = {
+        "message": {
+            "items": [{
+                "title": ["Glycocalyx degradation in sepsis"],
+                "author": [{"given": "D", "family": "Chappell"}],
+                "issued": {"date-parts": [[2008]]},
+                "DOI": "10.1234/abcd",
+            }]
+        }
+    }
+    resp = MagicMock()
+    resp.json.return_value = fake_json
+    resp.raise_for_status.return_value = None
+    with patch("httpx.get", return_value=resp):
+        out = crossref_lookup("glycocalyx sepsis")
+    assert out["title"] == "Glycocalyx degradation in sepsis"
+    assert out["year"] == 2008
+    assert out["doi"] == "10.1234/abcd"
+    assert out["url"] == "https://doi.org/10.1234/abcd"
+
+
+def test_crossref_lookup_missing_doi_yields_none_doi_url():
+    from unittest.mock import patch, MagicMock
+    from app.ingest.title import crossref_lookup
+
+    fake_json = {"message": {"items": [{"title": ["No DOI paper"]}]}}
+    resp = MagicMock()
+    resp.json.return_value = fake_json
+    resp.raise_for_status.return_value = None
+    with patch("httpx.get", return_value=resp):
+        out = crossref_lookup("no doi")
+    assert out["doi"] is None
+    assert out["url"] is None

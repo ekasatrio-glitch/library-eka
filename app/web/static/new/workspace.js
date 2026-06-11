@@ -3,6 +3,7 @@ import { escapeHtml, getJSON, postJSON, friendlyError } from "./api.js";
 import { mountChat } from "./chat.js";
 import { mountDraft } from "./draft.js";
 import { mountPapers } from "./papers.js";
+import { mountFramework } from "./framework.js";
 
 function cell(v) {
   const text = (v && typeof v === "object") ? (v.text ?? "") : (v ?? "");
@@ -42,12 +43,14 @@ export async function mountWorkspace(screen, pid, deps) { // deps: {history, min
           <button class="tab" data-tab="paper" type="button">📄 Paper (<span id="ws-count">${paperIds.length}</span>)</button>
           <button class="tab" data-tab="draft" type="button">📝 Draft</button>
           <button class="tab" data-tab="matriks" type="button">📊 Matriks</button>
+          <button class="tab" data-tab="kerangka" type="button">🧭 Kerangka</button>
         </div>
       </div>
       <div class="ws-panel" data-panel="tanya"></div>
       <div class="ws-panel" data-panel="paper" hidden></div>
       <div class="ws-panel" data-panel="draft" hidden></div>
       <div class="ws-panel" data-panel="matriks" hidden></div>
+      <div class="ws-panel" data-panel="kerangka" hidden></div>
     </div>`;
 
   screen.querySelector("#ws-back").addEventListener("click", deps.onBack);
@@ -172,6 +175,9 @@ export async function mountWorkspace(screen, pid, deps) { // deps: {history, min
   getJSON(`/projects/${pid}/matrix?view=matrix`).then(res => {
     if (!built && (res.rows || []).length) out.innerHTML = matrixTable(res);
   }).catch(() => {});
+
+  // ----- Kerangka (theoretical framework diagram) -----
+  mountFramework(screen.querySelector('[data-panel="kerangka"]'), pid);
 
   newConv();
 }
